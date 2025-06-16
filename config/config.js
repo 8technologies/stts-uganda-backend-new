@@ -11,7 +11,7 @@ const MAX_RESULTS = 1000;
 const db = await mysql.createPool({
   host: "localhost",
   user: "root",
-  database: "observatory",
+  database: "ict_observatory",
   password: "",
   connectionLimit: 10,
   waitForConnections: true,
