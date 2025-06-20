@@ -10,6 +10,7 @@ const schoolPeriodicObservationsTypDefs = `#graphql
         usage: Usage
         software: Software
         capacity: Capacity
+        last_modified_by: String
     }
 
         type Infrastructure {
@@ -43,11 +44,13 @@ const schoolPeriodicObservationsTypDefs = `#graphql
         }
 
     type Query {
-        school_periodic_observations(limit: Int, offset: Int, school_id: ID): [SchoolPeriodicObservation]
+        school_periodic_observations(limit: Int, offset: Int, school_id: ID, user_id: ID): [SchoolPeriodicObservation]
     }
 
     type Mutation {
         add_school_periodic_observation(payload: SchoolPeriodicObservationInput!): ResponseMessage!
+        addICTReport(payload: SchoolPeriodicObservationInput!): ResponseMessage!
+        updateICTReport(payload: SchoolPeriodicObservationInput!): ResponseMessage!
     }
 
     input SchoolPeriodicObservationInput {
@@ -59,6 +62,10 @@ const schoolPeriodicObservationsTypDefs = `#graphql
         usage: UsageInput
         software: SoftwareInput
         capacity: CapacityInput
+        lastModifiedBy: String
+        synced: Boolean
+        lastUpdated: DateTime
+        edit: Boolean
     }
 
     input PeriodicInfrastructureInput {
@@ -90,6 +97,6 @@ const schoolPeriodicObservationsTypDefs = `#graphql
         ictTrainedTeachers: Int
         supportStaff: Int
     }
-`
+`;
 
 export default schoolPeriodicObservationsTypDefs;

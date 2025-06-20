@@ -138,6 +138,7 @@ const schoolTypDefs = `#graphql
         school_accessibility: String
         nearby_health_facility: String
         health_facility_distance: Float
+        synced: Boolean
 
         # Performance
         ple_pass_rate_year1: Float
@@ -167,12 +168,14 @@ const schoolTypDefs = `#graphql
     }
 
     type Query {
-        schools: [School]
+        schools(user_id: String): [School]
         school(id: ID!): School
     }
 
     type Mutation {
         addSchool(payload: SchoolInput!): ResponseMessage!
+        addSchoolMobile(payload: SchoolInput!): ResponseMessage!
+        updateSchoolMobile(payload: SchoolInput!): ResponseMessage!
     }
 
     input SchoolInput {
@@ -204,6 +207,9 @@ const schoolTypDefs = `#graphql
         accessibility: AccessibilityInput
         schoolFacilities: SchoolFacilitiesInput
         performance: PerformanceInput
+        lastModifiedBy: String
+        synced: Boolean
+        lastUpdated: DateTime
     }
 
 input LocationInput {

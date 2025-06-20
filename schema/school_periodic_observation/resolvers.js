@@ -1,14 +1,15 @@
 import { GraphQLError } from "graphql";
-import { GraphQLDate, GraphQLDateTime, } from "graphql-scalars";
+import { GraphQLDate, GraphQLDateTime } from "graphql-scalars";
 import { db } from "../../config/config.js";
 import saveData from "../../utils/db/saveData.js";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 
 export const getSchoolPeriodicObservations = async ({
   limit = 10,
   offset = 0,
   school_id,
   id,
+  user_id,
 }) => {
   try {
     let where = "WHERE spo.deleted = 0";
@@ -23,6 +24,11 @@ export const getSchoolPeriodicObservations = async ({
     if (id) {
       where += " AND spo.id = ?";
       values.push(id);
+    }
+
+    if (user_id) {
+      where += " AND spo.last_modified_by = ?";
+      values.push(user_id);
     }
 
     // Main query with all joins
@@ -82,13 +88,14 @@ export const getSchoolPeriodicObservations = async ({
 const schoolPeriodicObservationResolvers = {
   Date: GraphQLDate,
   Query: {
-    school_periodic_observations: async (_, { input = {} }) => {
-      const { limit, offset, school_id, id } = input;
+    school_periodic_observations: async (_, args) => {
+      const { limit, offset, school_id, id, user_id } = args;
       return await getSchoolPeriodicObservations({
         limit,
         offset,
         school_id,
         id,
+        user_id,
       });
     },
   },
@@ -123,28 +130,34 @@ const schoolPeriodicObservationResolvers = {
   Mutation: {
     add_school_periodic_observation: async (parent, { payload }, context) => {
       try {
-        const { infrastructure, usage, software, capacity, ...observationData } = payload;
+        const {
+          infrastructure,
+          usage,
+          software,
+          capacity,
+          ...observationData
+        } = payload;
         const connection = await db.getConnection();
-        
+
         try {
           await connection.beginTransaction();
-    
+
           // Determine if this is an update or insert
           const isUpdate = Boolean(observationData?.id);
           const observationId = observationData?.id || uuidv4();
-    
+
           // 1. Save main observation record
           await saveData({
             table: "school_periodic_observations",
             data: {
               school_id: observationData.schoolId,
               date: new Date(observationData.date),
-              period: observationData.period
+              period: observationData.period,
             },
             id: isUpdate ? observationId : null,
-            connection
+            connection,
           });
-    
+
           // For update operations, first delete existing related records
           if (isUpdate) {
             await connection.execute(
@@ -160,7 +173,7 @@ const schoolPeriodicObservationResolvers = {
               [observationId]
             );
           }
-    
+
           // 2. Save infrastructure (upsert)
           await saveData({
             table: "observation_infrastructure",
@@ -173,26 +186,26 @@ const schoolPeriodicObservationResolvers = {
               internet_connection: infrastructure.internetConnection,
               internet_speed_mbps: infrastructure.internetSpeedMbps,
               power_backup: infrastructure.powerBackup,
-              functional_devices: infrastructure.functionalDevices
+              functional_devices: infrastructure.functionalDevices,
             },
             id: isUpdate ? observationId : null,
             idColumn: "observation_id",
-            connection
+            connection,
           });
-    
+
           // 3. Save power sources (always insert)
           if (infrastructure.powerSource.length > 0) {
             await saveData({
               table: "observation_power_sources",
-              data: infrastructure.powerSource.map(source => ({
+              data: infrastructure.powerSource.map((source) => ({
                 observation_id: observationId,
-                power_source: source
+                power_source: source,
               })),
               id: null,
-              connection
+              connection,
             });
           }
-    
+
           // 4. Save usage (upsert)
           await saveData({
             table: "observation_usage",
@@ -201,82 +214,425 @@ const schoolPeriodicObservationResolvers = {
               teachers_using_ict: usage.teachersUsingICT,
               total_teachers: usage.totalTeachers,
               weekly_computer_lab_hours: usage.weeklyComputerLabHours,
-              student_digital_literacy_rate: usage.studentDigitalLiteracyRate
+              student_digital_literacy_rate: usage.studentDigitalLiteracyRate,
             },
             id: isUpdate ? observationId : null,
             idColumn: "observation_id",
-            connection
+            connection,
           });
-    
+
           // 5. Save software (upsert)
           await saveData({
             table: "observation_software",
             data: {
               observation_id: observationId,
-              office_applications: software.officeApplications
+              office_applications: software.officeApplications,
             },
             id: isUpdate ? observationId : null,
             idColumn: "observation_id",
-            connection
+            connection,
           });
-    
+
           // 6. Save operating systems (always insert)
           if (software.operatingSystems.length > 0) {
             await saveData({
               table: "observation_operating_systems",
-              data: software.operatingSystems.map(os => ({
+              data: software.operatingSystems.map((os) => ({
                 observation_id: observationId,
-                operating_system: os
+                operating_system: os,
               })),
               id: null,
-              connection
+              connection,
             });
           }
-    
+
           // 7. Save educational software (always insert)
           if (software.educationalSoftware.length > 0) {
             await saveData({
               table: "observation_educational_software",
-              data: software.educationalSoftware.map(app => ({
+              data: software.educationalSoftware.map((app) => ({
                 observation_id: observationId,
-                software_name: app
+                software_name: app,
               })),
               id: null,
-              connection
+              connection,
             });
           }
-    
+
           // 8. Save capacity (upsert)
           await saveData({
             table: "observation_capacity",
             data: {
               observation_id: observationId,
               ict_trained_teachers: capacity.ictTrainedTeachers,
-              support_staff: capacity.supportStaff
+              support_staff: capacity.supportStaff,
             },
             id: isUpdate ? observationId : null,
             idColumn: "observation_id",
-            connection
+            connection,
           });
-    
+
           await connection.commit();
           connection.release();
-    
+
           return {
             success: true,
-            message: `School Periodic Observation ${isUpdate ? 'updated' : 'saved'} successfully`,
-            observationId
+            message: `School Periodic Observation ${
+              isUpdate ? "updated" : "saved"
+            } successfully`,
+            observationId,
           };
-    
         } catch (error) {
           await connection.rollback();
           connection.release();
-          throw new GraphQLError(`Failed to ${observationData?.id ? 'update' : 'save'} observation: ${error.message}`);
+          throw new GraphQLError(
+            `Failed to ${
+              observationData?.id ? "update" : "save"
+            } observation: ${error.message}`
+          );
         }
       } catch (error) {
         throw new GraphQLError(error.message);
       }
-    }
+    },
+    addICTReport: async (parent, { payload }, context) => {
+      try {
+        const {
+          infrastructure,
+          usage,
+          software,
+          capacity,
+          ...observationData
+        } = payload;
+
+        console.log("payload add", payload);
+        const connection = await db.getConnection();
+
+        try {
+          await connection.beginTransaction();
+
+          // Determine if this is an update or insert
+          // const isUpdate = Boolean(observationData?.id);
+          const observationId = observationData?.id || uuidv4();
+
+          // 1. Save main observation record
+          await saveData({
+            table: "school_periodic_observations",
+            data: {
+              id: observationId,
+              school_id: observationData.schoolId,
+              date: new Date(observationData.date),
+              period: observationData.period,
+              last_modified_by: observationData.lastModifiedBy,
+            },
+            id: null,
+            connection,
+          });
+
+          // For update operations, first delete existing related records
+          // if (isUpdate) {
+          //   await connection.execute(
+          //     `DELETE FROM observation_power_sources WHERE observation_id = ?`,
+          //     [observationId]
+          //   );
+          //   await connection.execute(
+          //     `DELETE FROM observation_operating_systems WHERE observation_id = ?`,
+          //     [observationId]
+          //   );
+          //   await connection.execute(
+          //     `DELETE FROM observation_educational_software WHERE observation_id = ?`,
+          //     [observationId]
+          //   );
+          // }
+
+          // 2. Save infrastructure (upsert)
+          await saveData({
+            table: "observation_infrastructure",
+            data: {
+              observation_id: observationId,
+              computers: infrastructure.computers,
+              tablets: infrastructure.tablets,
+              projectors: infrastructure.projectors,
+              printers: infrastructure.printers,
+              internet_connection: infrastructure.internetConnection,
+              internet_speed_mbps: infrastructure.internetSpeedMbps,
+              power_backup: infrastructure.powerBackup,
+              functional_devices: infrastructure.functionalDevices,
+            },
+            id: null,
+            idColumn: "observation_id",
+            connection,
+          });
+
+          // 3. Save power sources (always insert)
+          if (infrastructure.powerSource.length > 0) {
+            await saveData({
+              table: "observation_power_sources",
+              data: infrastructure.powerSource.map((source) => ({
+                observation_id: observationId,
+                power_source: source,
+              })),
+              id: null,
+              connection,
+            });
+          }
+
+          // 4. Save usage (upsert)
+          await saveData({
+            table: "observation_usage",
+            data: {
+              observation_id: observationId,
+              teachers_using_ict: usage.teachersUsingICT,
+              total_teachers: usage.totalTeachers,
+              weekly_computer_lab_hours: usage.weeklyComputerLabHours,
+              student_digital_literacy_rate: usage.studentDigitalLiteracyRate,
+            },
+            id: null,
+            idColumn: "observation_id",
+            connection,
+          });
+
+          // 5. Save software (upsert)
+          await saveData({
+            table: "observation_software",
+            data: {
+              observation_id: observationId,
+              office_applications: software.officeApplications,
+            },
+            id: null,
+            idColumn: "observation_id",
+            connection,
+          });
+
+          // 6. Save operating systems (always insert)
+          if (software.operatingSystems.length > 0) {
+            await saveData({
+              table: "observation_operating_systems",
+              data: software.operatingSystems.map((os) => ({
+                observation_id: observationId,
+                operating_system: os,
+              })),
+              id: null,
+              connection,
+            });
+          }
+
+          // 7. Save educational software (always insert)
+          if (software.educationalSoftware.length > 0) {
+            await saveData({
+              table: "observation_educational_software",
+              data: software.educationalSoftware.map((app) => ({
+                observation_id: observationId,
+                software_name: app,
+              })),
+              id: null,
+              connection,
+            });
+          }
+
+          // 8. Save capacity (upsert)
+          await saveData({
+            table: "observation_capacity",
+            data: {
+              observation_id: observationId,
+              ict_trained_teachers: capacity.ictTrainedTeachers,
+              support_staff: capacity.supportStaff,
+            },
+            id: null,
+            idColumn: "observation_id",
+            connection,
+          });
+
+          await connection.commit();
+          connection.release();
+
+          return {
+            success: true,
+            message: `School Periodic Observation saved successfully`,
+            observationId,
+          };
+        } catch (error) {
+          await connection.rollback();
+          connection.release();
+          throw new GraphQLError(
+            `Failed to ${
+              observationData?.id ? "update" : "save"
+            } observation: ${error.message}`
+          );
+        }
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+    updateICTReport: async (parent, { payload }, context) => {
+      try {
+        const {
+          infrastructure,
+          usage,
+          software,
+          capacity,
+          ...observationData
+        } = payload;
+        console.log("payload edit", payload);
+        const connection = await db.getConnection();
+
+        try {
+          await connection.beginTransaction();
+          let isUpdate = true;
+          // Determine if this is an update or insert
+          // const isUpdate = Boolean(observationData?.id);
+          const observationId = observationData?.id;
+
+          // 1. Save main observation record
+          await saveData({
+            table: "school_periodic_observations",
+            data: {
+              // id: observationId,
+              school_id: observationData.schoolId,
+              date: new Date(observationData.date),
+              period: observationData.period,
+              last_modified_by: observationData.lastModifiedBy,
+            },
+            id: observationId,
+            connection,
+          });
+
+          // For update operations, first delete existing related records
+          if (isUpdate) {
+            await connection.execute(
+              `DELETE FROM observation_power_sources WHERE observation_id = ?`,
+              [observationId]
+            );
+            await connection.execute(
+              `DELETE FROM observation_operating_systems WHERE observation_id = ?`,
+              [observationId]
+            );
+            await connection.execute(
+              `DELETE FROM observation_educational_software WHERE observation_id = ?`,
+              [observationId]
+            );
+          }
+
+          // 2. Save infrastructure (upsert)
+          await saveData({
+            table: "observation_infrastructure",
+            data: {
+              observation_id: observationId,
+              computers: infrastructure.computers,
+              tablets: infrastructure.tablets,
+              projectors: infrastructure.projectors,
+              printers: infrastructure.printers,
+              internet_connection: infrastructure.internetConnection,
+              internet_speed_mbps: infrastructure.internetSpeedMbps,
+              power_backup: infrastructure.powerBackup,
+              functional_devices: infrastructure.functionalDevices,
+            },
+            id: observationId,
+            idColumn: "observation_id",
+            connection,
+          });
+
+          // 3. Save power sources (always insert)
+          if (infrastructure.powerSource.length > 0) {
+            await saveData({
+              table: "observation_power_sources",
+              data: infrastructure.powerSource.map((source) => ({
+                observation_id: observationId,
+                power_source: source,
+              })),
+              id: observationId,
+              idColumn: "observation_id",
+              connection,
+            });
+          }
+
+          // 4. Save usage (upsert)
+          await saveData({
+            table: "observation_usage",
+            data: {
+              observation_id: observationId,
+              teachers_using_ict: usage.teachersUsingICT,
+              total_teachers: usage.totalTeachers,
+              weekly_computer_lab_hours: usage.weeklyComputerLabHours,
+              student_digital_literacy_rate: usage.studentDigitalLiteracyRate,
+            },
+            id: observationId,
+            idColumn: "observation_id",
+            connection,
+          });
+
+          // 5. Save software (upsert)
+          await saveData({
+            table: "observation_software",
+            data: {
+              observation_id: observationId,
+              office_applications: software.officeApplications,
+            },
+            id: observationId,
+            idColumn: "observation_id",
+            connection,
+          });
+
+          // 6. Save operating systems (always insert)
+          if (software.operatingSystems.length > 0) {
+            await saveData({
+              table: "observation_operating_systems",
+              data: software.operatingSystems.map((os) => ({
+                observation_id: observationId,
+                operating_system: os,
+              })),
+              id: null,
+              connection,
+            });
+          }
+
+          // 7. Save educational software (always insert)
+          if (software.educationalSoftware.length > 0) {
+            await saveData({
+              table: "observation_educational_software",
+              data: software.educationalSoftware.map((app) => ({
+                observation_id: observationId,
+                software_name: app,
+              })),
+              id: null,
+              connection,
+            });
+          }
+
+          // 8. Save capacity (upsert)
+          await saveData({
+            table: "observation_capacity",
+            data: {
+              observation_id: observationId,
+              ict_trained_teachers: capacity.ictTrainedTeachers,
+              support_staff: capacity.supportStaff,
+            },
+            id: observationId,
+            idColumn: "observation_id",
+            connection,
+          });
+
+          await connection.commit();
+          connection.release();
+
+          return {
+            success: true,
+            message: `School Periodic Observation updated successfully`,
+            observationId,
+          };
+        } catch (error) {
+          await connection.rollback();
+          connection.release();
+          throw new GraphQLError(
+            `Failed to ${
+              observationData?.id ? "update" : "save"
+            } observation: ${error.message}`
+          );
+        }
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
   },
 };
 
