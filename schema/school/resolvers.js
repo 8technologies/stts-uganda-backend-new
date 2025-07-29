@@ -5,7 +5,7 @@ import saveData from "../../utils/db/saveData.js";
 import { getSchoolPeriodicObservations } from "../school_periodic_observation/resolvers.js";
 import { v4 as uuidv4 } from "uuid";
 
-const getSchools = async ({ limit = 10, offset = 0, id, user_id }) => {
+const getSchools = async ({ limit = 100, offset = 0, id, user_id }) => {
   try {
     let where = "";
     let values = [];
@@ -73,7 +73,7 @@ const schoolResolvers = {
   Mutation: {
     addSchool: async (parent, args, context) => {
       try {
-        // console.log("payload", args.payload);
+        console.log("payload", args.payload);
         const {
           id,
           name,
@@ -490,6 +490,8 @@ const schoolResolvers = {
           lastModifiedBy,
           lastUpdated,
         } = args.payload;
+
+        console.log("payload", args);
 
         // logic for savinng new school
         const data = {

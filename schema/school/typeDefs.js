@@ -12,7 +12,7 @@ const schoolTypDefs = `#graphql
         longitude: Float
         type: SchoolType
         environment: Environment
-        ownership_type: OwnershipType
+        ownership_type: String
         school_category: SchoolCategory
         signature_program: String
         year_established: Int
@@ -390,6 +390,7 @@ input PerformanceInput {
         government
         government_aided
         community
+        private
     }
 
     enum SchoolCategory {

@@ -27,6 +27,9 @@ const userTypeDefs = `#graphql
         lastName: String!
         role: UserRole!
         password: String!
+        district: String
+        subcounty: String
+        school_id: String
     }
 
     input UpdateUserInput {
@@ -36,6 +39,9 @@ const userTypeDefs = `#graphql
         lastName: String
         role: UserRole
         isActive: Boolean
+        district: String
+        subcounty: String
+        school_id: String
     }
 
     type UserResponse {
@@ -53,9 +59,10 @@ const userTypeDefs = `#graphql
     type Mutation {
         createUser(payload: CreateUserInput!): UserResponse!
         updateUser(payload: UpdateUserInput!): UserResponse!
-        deleteUser(id: ID!): UserResponse!
         toggleUserStatus(id: ID!): UserResponse!
         login(email: String!, password: String!) :UserResponse!
+        resetPassword(id: String!, newPassword: String!): UserResponse!
+        deleteUser(user_id: String!): UserResponse
     }
 `;
 

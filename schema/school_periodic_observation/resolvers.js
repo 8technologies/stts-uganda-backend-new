@@ -5,7 +5,7 @@ import saveData from "../../utils/db/saveData.js";
 import { v4 as uuidv4 } from "uuid";
 
 export const getSchoolPeriodicObservations = async ({
-  limit = 10,
+  limit = 100,
   offset = 0,
   school_id,
   id,
