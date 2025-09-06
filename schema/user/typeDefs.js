@@ -7,14 +7,11 @@ const userTypeDefs = `#graphql
         surname: String!
         other_names: String!,
         email: String!
-        first_name: String!
-        last_name: String!
         role_id: String!,
         role: Role!
         is_active: Boolean!
         last_modified_at: DateTime!
         last_modified_by: String!
-        updated_at: Date!
     }
 
 

@@ -1,5 +1,6 @@
 import { GraphQLError } from "graphql";
 import jwt from "jsonwebtoken";
+import { PRIVATE_KEY } from "../config/config.js";
 // import { getUserLastLoginDetails } from "../schema/user/resolvers.js";
 
 const authenticateUser = async ({ req }) => {
@@ -13,7 +14,7 @@ const authenticateUser = async ({ req }) => {
     });
   }
 
-  //   let secretKey;
+  let secretKey = PRIVATE_KEY;
   //   if (portalType === "student") {
   //     secretKey = PORTAL_PRIVATE_KEY;
   //   } else if (portalType == "applicant") {

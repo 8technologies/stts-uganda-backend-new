@@ -2,7 +2,7 @@ import mysql from "mysql2/promise";
 
 const port = 9000;
 const host = "localhost";
-const baseUrl = `http://${host}:2222/module_logos/`;
+const baseUrl = `http://${host}:${port}/logos/`;
 const imagesUrl = `http://${host}:2222`;
 const test = "testing123";
 const MAX_RESULTS = 1000;
