@@ -1,16 +1,18 @@
 import mysql from "mysql2/promise";
 
-const port = 8001;
+const port = 9000;
 const host = "localhost";
 const baseUrl = `http://${host}:2222/module_logos/`;
 const imagesUrl = `http://${host}:2222`;
 const test = "testing123";
 const MAX_RESULTS = 1000;
+const PRIVATE_KEY = "tredumo_lower@2025";
 
-const db = await mysql.createPool({
+// Create connection pool
+const db = mysql.createPool({
   host: "localhost",
   user: "root",
-  database: "ict_observatory",
+  database: "tredumo_lower",
   password: "",
   connectionLimit: 10,
   waitForConnections: true,
@@ -18,4 +20,14 @@ const db = await mysql.createPool({
   enableKeepAlive: true,
 });
 
-export { baseUrl, port, db, host, MAX_RESULTS, imagesUrl };
+// Verify connection
+try {
+  const connection = await db.getConnection();
+  console.log("Database connection established successfully");
+  connection.release();
+} catch (error) {
+  console.error("Database connection failed:", error.message);
+  process.exit(1); // Exit process with failure code
+}
+
+export { baseUrl, port, db, host, MAX_RESULTS, imagesUrl, PRIVATE_KEY };

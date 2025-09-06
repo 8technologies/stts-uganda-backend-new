@@ -1,31 +1,29 @@
 const userTypeDefs = `#graphql
-    scalar Date
+    scalar DateTime
 
     type User {
         id: ID!
+        salutation: String,
+        surname: String!
+        other_names: String!,
         email: String!
         first_name: String!
         last_name: String!
-        role: UserRole!
+        role_id: String!,
+        role: Role!
         is_active: Boolean!
-        created_at: Date!
+        last_modified_at: DateTime!
+        last_modified_by: String!
         updated_at: Date!
     }
 
-    enum UserRole {
-        ADMIN
-        SCHOOL_ADMIN
-        MINISTRY_ADMIN
-        DISTRICT_ADMIN
-        VIEWER
-    }
 
     input CreateUserInput {
         id: ID,
         email: String!
         firstName: String!
         lastName: String!
-        role: UserRole!
+        # role: Role!
         password: String!
         district: String
         subcounty: String
@@ -37,7 +35,7 @@ const userTypeDefs = `#graphql
         email: String
         firstName: String
         lastName: String
-        role: UserRole
+        # role: Role
         isActive: Boolean
         district: String
         subcounty: String
@@ -50,6 +48,14 @@ const userTypeDefs = `#graphql
         user: User
     }
 
+    type UserLoginResponse {
+        success: Boolean!
+        message: String
+        token: String!
+        user: User
+    }
+
+
     type Query {
         users: [User!]!
         user(id: ID!): User
@@ -60,7 +66,7 @@ const userTypeDefs = `#graphql
         createUser(payload: CreateUserInput!): UserResponse!
         updateUser(payload: UpdateUserInput!): UserResponse!
         toggleUserStatus(id: ID!): UserResponse!
-        login(email: String!, password: String!) :UserResponse!
+        login(username: String!, password: String!) :UserLoginResponse!
         resetPassword(id: String!, newPassword: String!): UserResponse!
         deleteUser(user_id: String!): UserResponse
     }

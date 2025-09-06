@@ -6,13 +6,17 @@ import express from "express";
 import http from "http";
 import cors from "cors";
 import { typeDefs, resolvers } from "./schema/index.js";
-import { host } from "./config/config.js";
+import { host, port } from "./config/config.js";
+import authenticateUser from "./middleware/auth.js";
 
 // Required logic for integrating with Express
 const app = express();
 // Our httpServer handles incoming requests to our Express app.
 // Below, we tell Apollo Server to "drain" this httpServer,
 // enabling our servers to shut down gracefully.
+
+app.use(express.static("public"));
+// app.use(cors({ origin: allowedOrigins }));
 const httpServer = http.createServer(app);
 
 // Same ApolloServer initialization as before, plus the drain plugin
@@ -34,10 +38,35 @@ app.use(
   // expressMiddleware accepts the same arguments:
   // an Apollo Server instance and optional configuration options
   expressMiddleware(server, {
-    context: async ({ req }) => ({ token: req.headers.token }),
+    context: async ({ req, res }) => {
+      const operationName = req.body.operationName;
+      const exemptOperations = new Set([
+        "Login",
+        "IntrospectionQuery",
+        "System_settings",
+      ]);
+
+      // token: req.headers.token
+
+      if (!exemptOperations.has(operationName)) {
+        await authenticateUser({ req });
+      }
+
+      return {
+        req,
+        res,
+        // loaders: createLoaders(),
+        // logUserAction: (params) =>
+        //   logUserAction({
+        //     ...params,
+        //     ip_address: req.ip,
+        //     user_agent: req.headers["user-agent"],
+        //   }),
+      };
+    },
   })
 );
 
 // Modified server startup
-await new Promise((resolve) => httpServer.listen({ port: 4000 }, resolve));
-console.log(`🚀 Server ready at http://${host}:4000/`);
+await new Promise((resolve) => httpServer.listen({ port }, resolve));
+console.log(`🚀 Server ready at http://${host}:${port}`);

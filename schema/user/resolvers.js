@@ -1,19 +1,19 @@
 import { GraphQLError } from "graphql";
 import { GraphQLDate, GraphQLDateTime } from "graphql-scalars";
-import { db } from "../../config/config.js";
+import { db, PRIVATE_KEY } from "../../config/config.js";
 import saveData from "../../utils/db/saveData.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 
-const loginUser = async ({ email, password, user_id, context }) => {
+const loginUser = async ({ username, password, user_id, context }) => {
   try {
     let values = [];
     let where = "";
 
-    if (email) {
-      where += " AND email = ?";
-      values.push(email);
+    if (username) {
+      where += " AND username = ?";
+      values.push(username);
     }
 
     if (user_id) {
@@ -29,15 +29,26 @@ const loginUser = async ({ email, password, user_id, context }) => {
     const user = results[0];
 
     // console.log("user", results[0]);
-    if (!user) throw new GraphQLError("Invalid Email or Password");
+    if (!user) throw new GraphQLError("Invalid Username or Password");
 
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    if (!validPassword) throw new GraphQLError("Invalid Email or Password");
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) throw new GraphQLError("Invalid Username or Password");
 
     if (!user.is_active)
       throw new GraphQLError(
         "Account suspended, Please contact the admin for rectification!!!"
       );
+
+    const tokenData = {
+      id: user.id,
+      email: user?.email || null,
+    };
+
+    const token = jwt.sign(tokenData, PRIVATE_KEY, {
+      expiresIn: "1d",
+    });
+
+    context.res.setHeader("x-auth-token", `Bearer ${token}`);
 
     // Access the IP address from the context
     // const clientIpAddress = context.req.connection.remoteAddress;
@@ -53,6 +64,7 @@ const loginUser = async ({ email, password, user_id, context }) => {
       success: true,
       message: "Login Successful",
       user: user,
+      token,
     };
   } catch (error) {
     throw new GraphQLError(error.message);
@@ -94,34 +106,6 @@ const userResolvers = {
     users: async (_, args) => {
       return await getUsers({});
     },
-  },
-  SchoolPeriodicObservation: {
-    infrastructure: (parent) => ({
-      computers: parent.computers,
-      tablets: parent.tablets,
-      projectors: parent.projectors,
-      printers: parent.printers,
-      internet_connection: parent.internet_connection,
-      internet_speed_mbps: parent.internet_speed_mbps,
-      power_source: parent.power_source,
-      power_backup: parent.power_backup,
-      functional_devices: parent.functional_devices,
-    }),
-    usage: (parent) => ({
-      teachers_using_ict: parent.teachers_using_ict,
-      total_teachers: parent.total_teachers,
-      weekly_computer_lab_hours: parent.weekly_computer_lab_hours,
-      student_digital_literacy_rate: parent.student_digital_literacy_rate,
-    }),
-    software: (parent) => ({
-      operating_systems: parent.operating_systems,
-      educational_software: parent.educational_software,
-      office_applications: parent.office_applications,
-    }),
-    capacity: (parent) => ({
-      ict_trained_teachers: parent.ict_trained_teachers,
-      support_staff: parent.support_staff,
-    }),
   },
   Mutation: {
     createUser: async (parent, args, context) => {
@@ -294,10 +278,11 @@ const userResolvers = {
         }
       }
     },
-    login: async (parent, args) => {
+    login: async (parent, args, context) => {
       const result = await loginUser({
-        email: args.email,
+        username: args.username,
         password: args.password,
+        context,
       });
 
       return result;
