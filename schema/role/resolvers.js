@@ -50,8 +50,8 @@ const roleResolvers = {
         const { id, role_name, description } = args.payload;
 
         const data = {
-          role_name,
-          description,
+          name: role_name,
+          description: description || null,
         };
 
         const save_id = await saveData({
@@ -62,14 +62,14 @@ const roleResolvers = {
         });
 
         return {
-          success: "true",
+          success: true,
           message: id
             ? "Role updated successfully"
             : "Role Created Successfully",
         };
       } catch (error) {
         console.log("error", error);
-        throw new GraphQLError("Duplicate Role");
+        throw new GraphQLError(error.message);
       }
     },
     deleteRole: async (parent, args, context) => {
