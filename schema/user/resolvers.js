@@ -34,11 +34,6 @@ const loginUser = async ({ username, password, user_id, context }) => {
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) throw new GraphQLError("Invalid Username or Password");
 
-    if (!user.is_active)
-      throw new GraphQLError(
-        "Account suspended, Please contact the admin for rectification!!!"
-      );
-
     const tokenData = {
       id: user.id,
       email: user?.email || null,
@@ -111,20 +106,16 @@ const userResolvers = {
     createUser: async (parent, args, context) => {
       const {
         id,
-        email,
-        firstName,
-        lastName,
-        role,
+        username,
+        first_name,
+        other_names,
         password,
+        email,
         district,
-        subcounty,
-        school_id,
+        image,
       } = args.payload;
-      let connection = await db.getConnection();
 
       try {
-        await connection.beginTransaction();
-        // first, we need to check and see if we have the employee email in our records
         const users = await getUsers({
           email,
           limit: 1,
@@ -138,15 +129,14 @@ const userResolvers = {
         const hashedPwd = await bcrypt.hash(password, salt);
 
         const data = {
+          username,
           email,
-          first_name: firstName,
-          last_name: lastName,
-          password_hash: hashedPwd,
-          role,
+          first_name,
+          other_names,
+          password: hashedPwd,
           district,
-          subcounty,
-          school_id,
           created_at: new Date(),
+          updated_at: new Date(),
         };
 
         if (!id) {
@@ -154,24 +144,19 @@ const userResolvers = {
         }
 
         // then save in the db
-        await saveData({
+        const save_id = await saveData({
           table: "users",
           data: data,
           id: id ? id : null,
-          connection: connection,
         });
-
-        await connection.commit();
 
         return {
           success: true,
           message: "User Account created successfully",
+          user: data,
         };
       } catch (error) {
-        await connection.rollback();
         throw new GraphQLError(error.message);
-      } finally {
-        connection.release(); // Always release the connection back to the pool
       }
     },
     updateUser: async (parent, args, context) => {

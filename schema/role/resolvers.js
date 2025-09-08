@@ -1,7 +1,6 @@
 import { db } from "../../config/config.js";
 import { GraphQLError } from "graphql";
 import saveData from "../../utils/db/saveData.js";
-import { getSystemApps } from "../apps/resolvers.js";
 
 export const getRoles = async ({ id }) => {
   try {
@@ -28,20 +27,6 @@ const roleResolvers = {
     all_roles: async (parent, args) => {
       const result = await getRoles({});
       return result;
-    },
-    role_modules: async (parent, args) => {
-      const results = getSystemApps({
-        role_id: args.role_id,
-      });
-      return results;
-    },
-  },
-  Role: {
-    _modules: (parent) => {
-      const results = getSystemApps({
-        role_id: parent.id,
-      });
-      return results;
     },
   },
   Mutation: {
@@ -91,83 +76,6 @@ const roleResolvers = {
         return {
           success: "true",
           message: "Role deleted successfully",
-        };
-      } catch (error) {
-        throw new GraphQLError(error.message);
-      }
-    },
-    updateRoleModules: async (parent, args, context) => {
-      try {
-        const { role_id, module_ids } = args.payload;
-
-        const data = module_ids.map((id) => ({
-          role_id,
-          module_id: id,
-        }));
-
-        const table = "role_modules";
-
-        let columns = Object.keys(data[0]); // Columns from the first object in the array
-        let placeholders = columns.map(() => "?").join(", ");
-        let sql = `INSERT IGNORE INTO ${table} (${columns.join(
-          ", "
-        )}) VALUES (${placeholders})`;
-
-        const promises = data.map((row) => {
-          let values = Object.values(row);
-          return db.execute(sql, values);
-        });
-
-        const results = await Promise.all(promises);
-
-        return {
-          success: true,
-          message: "Apps Added Successfully",
-        };
-      } catch (error) {
-        throw new GraphQLError(error.message);
-      }
-    },
-    deleteRoleModule: async (parent, args, context) => {
-      try {
-        const { role_id, module_id } = args;
-
-        let sql =
-          "DELETE FROM role_modules WHERE role_id = ? AND module_id = ?";
-        let values = [role_id, module_id];
-
-        const [results] = await db.execute(sql, values);
-
-        if (results.affectedRows == 0) {
-          throw new GraphQLError("Failed to get Module!");
-        }
-
-        return {
-          success: "true",
-          message: "Apps Removed Successfully",
-        };
-      } catch (error) {
-        throw new GraphQLError(error.message);
-      }
-    },
-    updateRolePermissions: async (parent, args, context) => {
-      try {
-        const { role_id, permissions } = args.payload;
-
-        const data = {
-          permissions: JSON.stringify(permissions),
-        };
-
-        const save_id = await saveData({
-          table: "roles",
-          data,
-          id: role_id,
-          idColumn: "id",
-        });
-
-        return {
-          success: true,
-          message: "Permissions Saved Successfully",
         };
       } catch (error) {
         throw new GraphQLError(error.message);

@@ -12,7 +12,7 @@ const PRIVATE_KEY = "tredumo_lower@2025";
 const db = mysql.createPool({
   host: "localhost",
   user: "root",
-  database: "tredumo_lower",
+  database: "stts_uganda_new",
   password: "",
   connectionLimit: 10,
   waitForConnections: true,

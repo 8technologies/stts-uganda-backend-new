@@ -3,28 +3,26 @@ const userTypeDefs = `#graphql
 
     type User {
         id: ID!
-        salutation: String,
-        surname: String!
-        other_names: String!,
+        username: String!
+        first_name: String!
+        other_names: String!
         email: String!
-        role_id: String!,
-        role: Role!
-        is_active: Boolean!
-        last_modified_at: DateTime!
-        last_modified_by: String!
+        district: String!
+        image: String
+        created_at: DateTime!
+        updated_at: DateTime!
     }
 
 
     input CreateUserInput {
         id: ID,
-        email: String!
-        firstName: String!
-        lastName: String!
-        # role: Role!
+        username: String!
+        first_name: String!
+        other_names: String!
         password: String!
-        district: String
-        subcounty: String
-        school_id: String
+        email: String!
+        district: String!
+        image: String
     }
 
     input UpdateUserInput {
@@ -32,24 +30,10 @@ const userTypeDefs = `#graphql
         email: String
         firstName: String
         lastName: String
-        # role: Role
         isActive: Boolean
         district: String
         subcounty: String
         school_id: String
-    }
-
-    type UserResponse {
-        success: Boolean!
-        message: String
-        user: User
-    }
-
-    type UserLoginResponse {
-        success: Boolean!
-        message: String
-        token: String!
-        user: User
     }
 
 
@@ -57,13 +41,14 @@ const userTypeDefs = `#graphql
         users: [User!]!
         user(id: ID!): User
         currentUser: User
+
     }
 
     type Mutation {
+        login(username: String!, password: String!) :UserLoginResponse!
         createUser(payload: CreateUserInput!): UserResponse!
         updateUser(payload: UpdateUserInput!): UserResponse!
         toggleUserStatus(id: ID!): UserResponse!
-        login(username: String!, password: String!) :UserLoginResponse!
         resetPassword(id: String!, newPassword: String!): UserResponse!
         deleteUser(user_id: String!): UserResponse
     }

@@ -40,17 +40,17 @@ app.use(
   expressMiddleware(server, {
     context: async ({ req, res }) => {
       const operationName = req.body.operationName;
-      const exemptOperations = new Set([
-        "Login",
-        "IntrospectionQuery",
-        "System_settings",
-      ]);
+      // const exemptOperations = new Set([
+      //   "Login",
+      //   "IntrospectionQuery",
+      //   "System_settings",
+      // ]);
 
-      // token: req.headers.token
+      // // token: req.headers.token
 
-      if (!exemptOperations.has(operationName)) {
-        await authenticateUser({ req });
-      }
+      // if (!exemptOperations.has(operationName)) {
+      //   await authenticateUser({ req });
+      // }
 
       return {
         req,
