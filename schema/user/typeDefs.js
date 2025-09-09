@@ -41,7 +41,7 @@ const userTypeDefs = `#graphql
         users: [User!]!
         user(id: ID!): User
         currentUser: User
-
+        me: User
     }
 
     type Mutation {

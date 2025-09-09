@@ -101,6 +101,15 @@ const userResolvers = {
     users: async (_, args) => {
       return await getUsers({});
     },
+    me: async (_, args, context) => {
+      const user_id = context.req.user.id;
+
+      const [results] = await getUsers({
+        id: user_id,
+      });
+
+      return results;
+    },
   },
   Mutation: {
     createUser: async (parent, args, context) => {
