@@ -1,6 +1,8 @@
 import { db } from "../../config/config.js";
 import { GraphQLError } from "graphql";
 import saveData from "../../utils/db/saveData.js";
+import { JSONResolver } from "graphql-scalars";
+import tryParseJSON from "../../helpers/tryParseJSON.js";
 
 export const getRoles = async ({ id }) => {
   try {
@@ -23,10 +25,17 @@ export const getRoles = async ({ id }) => {
 };
 
 const roleResolvers = {
+  JSON: JSONResolver,
   Query: {
-    all_roles: async (parent, args) => {
+    roles: async (parent, args) => {
       const result = await getRoles({});
-      return result;
+
+      const res = result.map((role) => ({
+        ...role,
+        permissions: tryParseJSON(tryParseJSON(role.permissions)),
+      }));
+
+      return res;
     },
   },
   Mutation: {
@@ -51,6 +60,11 @@ const roleResolvers = {
           message: id
             ? "Role updated successfully"
             : "Role Created Successfully",
+          data: {
+            id: save_id,
+            name: role_name,
+            description,
+          },
         };
       } catch (error) {
         console.log("error", error);
@@ -76,6 +90,29 @@ const roleResolvers = {
         return {
           success: "true",
           message: "Role deleted successfully",
+        };
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+    updateRolePermissions: async (parent, args, context) => {
+      try {
+        const { role_id, permissions } = args.payload;
+
+        const data = {
+          permissions: JSON.stringify(permissions),
+        };
+
+        const save_id = await saveData({
+          table: "roles",
+          data,
+          id: role_id,
+          idColumn: "id",
+        });
+
+        return {
+          success: true,
+          message: "Permissions Saved Successfully",
         };
       } catch (error) {
         throw new GraphQLError(error.message);
