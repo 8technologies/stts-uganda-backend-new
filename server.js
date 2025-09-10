@@ -8,6 +8,7 @@ import cors from "cors";
 import { typeDefs, resolvers } from "./schema/index.js";
 import { host, port } from "./config/config.js";
 import authenticateUser from "./middleware/auth.js";
+import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs";
 
 // Required logic for integrating with Express
 const app = express();
@@ -25,6 +26,7 @@ const server = new ApolloServer({
   typeDefs,
   resolvers,
   plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+  csrfPrevention: true,
 });
 // Ensure we wait for our server to start
 await server.start();
@@ -35,6 +37,7 @@ app.use(
   "/graphql",
   cors("*"),
   express.json(),
+  graphqlUploadExpress(),
   // expressMiddleware accepts the same arguments:
   // an Apollo Server instance and optional configuration options
   expressMiddleware(server, {
@@ -44,7 +47,7 @@ app.use(
         "Login",
         "IntrospectionQuery",
         "System_settings",
-        "CreateUser",
+        "Register",
       ]);
 
       // token: req.headers.token

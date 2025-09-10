@@ -1,5 +1,6 @@
 const userTypeDefs = `#graphql
     scalar DateTime
+    scalar Upload
 
     type User {
         id: ID!
@@ -9,6 +10,8 @@ const userTypeDefs = `#graphql
         email: String!
         district: String!
         image: String
+        role_id: String
+        role_name: String
         created_at: DateTime!
         updated_at: DateTime!
     }
@@ -19,10 +22,20 @@ const userTypeDefs = `#graphql
         username: String!
         first_name: String!
         other_names: String!
-        password: String!
+        password: String
         email: String!
         district: String!
-        image: String
+        image: Upload,
+        role_id: String
+    }
+
+     input RegisterInput {
+        username: String!
+        first_name: String!
+        other_names: String!
+        password: String
+        email: String!
+        district: String!
     }
 
     input UpdateUserInput {
@@ -47,6 +60,7 @@ const userTypeDefs = `#graphql
     type Mutation {
         login(username: String!, password: String!) :UserLoginResponse!
         createUser(payload: CreateUserInput!): UserResponse!
+        register(payload: RegisterInput!): UserResponse!
         updateUser(payload: UpdateUserInput!): UserResponse!
         toggleUserStatus(id: ID!): UserResponse!
         resetPassword(id: String!, newPassword: String!): UserResponse!
