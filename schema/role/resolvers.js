@@ -4,7 +4,7 @@ import saveData from "../../utils/db/saveData.js";
 import { JSONResolver } from "graphql-scalars";
 import tryParseJSON from "../../helpers/tryParseJSON.js";
 
-export const getRoles = async ({ id }) => {
+export const getRoles = async ({ id, role_name }) => {
   try {
     let values = [];
     let where = "";
@@ -12,6 +12,11 @@ export const getRoles = async ({ id }) => {
     if (id || id === 0) {
       where += " AND r.id = ?";
       values.push(id);
+    }
+
+    if (role_name) {
+      where += " AND r.name = ?";
+      values.push(role_name);
     }
     let sql = `SELECT r.* FROM roles AS r WHERE deleted = 0 ${where} ORDER BY r.id DESC`;
 
@@ -88,7 +93,7 @@ const roleResolvers = {
         await db.execute(sql, values);
 
         return {
-          success: "true",
+          success: true,
           message: "Role deleted successfully",
         };
       } catch (error) {

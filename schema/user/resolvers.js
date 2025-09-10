@@ -5,6 +5,10 @@ import saveData from "../../utils/db/saveData.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs";
+import saveImage from "../../helpers/saveImage.js";
+import tryParseJSON from "../../helpers/tryParseJSON.js";
+import { getRoles } from "../role/resolvers.js";
 
 const loginUser = async ({ username, password, user_id, context }) => {
   try {
@@ -12,16 +16,23 @@ const loginUser = async ({ username, password, user_id, context }) => {
     let where = "";
 
     if (username) {
-      where += " AND username = ?";
+      where += " AND users.username = ?";
       values.push(username);
     }
 
     if (user_id) {
-      where += " AND id = ?";
+      where += " AND users.id = ?";
       values.push(id);
     }
 
-    let sql = `SELECT * FROM users WHERE deleted = 0 ${where}`;
+    let sql = `
+          SELECT 
+            users.*,
+            roles.name as role_name,
+            roles.permissions
+          FROM users 
+          LEFT JOIN roles ON roles.id = users.role_id
+          WHERE users.deleted = 0 ${where}`;
 
     // let [results] = await db.execute(sql, values);
     const [results] = await db.execute(sql, values);
@@ -37,6 +48,7 @@ const loginUser = async ({ username, password, user_id, context }) => {
     const tokenData = {
       id: user.id,
       email: user?.email || null,
+      permissions: tryParseJSON(tryParseJSON(user.permissions)),
     };
 
     const token = jwt.sign(tokenData, PRIVATE_KEY, {
@@ -66,7 +78,13 @@ const loginUser = async ({ username, password, user_id, context }) => {
   }
 };
 
-export const getUsers = async ({ limit = 10, offset = 0, email, id }) => {
+export const getUsers = async ({
+  limit = 10,
+  offset = 0,
+  email,
+  id,
+  username,
+}) => {
   try {
     let where = "WHERE users.deleted = 0";
     let values = [];
@@ -81,8 +99,18 @@ export const getUsers = async ({ limit = 10, offset = 0, email, id }) => {
       values.push(id);
     }
 
+    if (username) {
+      where += " AND users.username = ?";
+      values.push(username);
+    }
+
     let sql = `
-      SELECT * FROM users ${where} ORDER BY users.updated_at DESC LIMIT ? OFFSET ?
+      SELECT 
+       users.*,
+       roles.name as role_name
+      FROM users 
+      LEFT JOIN roles ON roles.id = users.role_id
+      ${where} ORDER BY users.updated_at DESC LIMIT ? OFFSET ?
     `;
 
     values.push(limit, offset);
@@ -97,6 +125,7 @@ export const getUsers = async ({ limit = 10, offset = 0, email, id }) => {
 
 const userResolvers = {
   Date: GraphQLDate,
+  Upload: GraphQLUpload,
   Query: {
     users: async (_, args) => {
       return await getUsers({});
@@ -112,7 +141,7 @@ const userResolvers = {
     },
   },
   Mutation: {
-    createUser: async (parent, args, context) => {
+    register: async (parent, args, context) => {
       const {
         id,
         username,
@@ -121,7 +150,6 @@ const userResolvers = {
         password,
         email,
         district,
-        image,
       } = args.payload;
 
       try {
@@ -133,9 +161,26 @@ const userResolvers = {
         if (users[0] && !id)
           throw new GraphQLError("User email already exists!");
 
+        const [usernameExists] = await getUsers({
+          username,
+          limit: 1,
+        });
+
+        if (usernameExists && !id)
+          throw new GraphQLError("Username already exists!");
+
         // generate unique password for employee
         const salt = await bcrypt.genSalt();
         const hashedPwd = await bcrypt.hash(password, salt);
+
+        // give the user a role of basic user
+        const [basic_user] = await getRoles({
+          role_name: "Basic User",
+        });
+
+        if (!basic_user) {
+          throw new GraphQLError("Role is not yet defined.");
+        }
 
         const data = {
           username,
@@ -144,6 +189,7 @@ const userResolvers = {
           other_names,
           password: hashedPwd,
           district,
+          role_id: basic_user.id,
           created_at: new Date(),
           updated_at: new Date(),
         };
@@ -163,6 +209,96 @@ const userResolvers = {
           success: true,
           message: "User Account created successfully",
           user: data,
+        };
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+    createUser: async (parent, args, context) => {
+      const {
+        id,
+        username,
+        first_name,
+        other_names,
+        password,
+        email,
+        district,
+        image,
+        role_id,
+      } = args.payload;
+
+      const isUpdate = Boolean(id);
+      let imageId;
+
+      try {
+        // Enforce unique email for new users
+        if (!isUpdate) {
+          const existing = await getUsers({ email, limit: 1 });
+          if (existing[0]) throw new GraphQLError("User email already exists!");
+
+          const [usernameExists] = await getUsers({
+            username,
+            limit: 1,
+          });
+
+          if (usernameExists && !id)
+            throw new GraphQLError("Username already exists!");
+        }
+
+        // For new users, password is required; for updates, skip password handling
+        let hashedPwd;
+        if (!isUpdate) {
+          if (!password)
+            throw new GraphQLError("Password is required for new users!");
+          const salt = await bcrypt.genSalt();
+          hashedPwd = await bcrypt.hash(password, salt);
+        }
+
+        // save user image
+        if (image) {
+          imageId = await saveImage({
+            image,
+          });
+        }
+
+        // Build data payload
+        const data = {
+          username,
+          email,
+          first_name,
+          other_names,
+          district,
+          updated_at: new Date(),
+        };
+
+        if (image) {
+          data.image = imageId;
+        }
+
+        // Include role if provided
+        if (role_id) data.role_id = role_id;
+
+        // Only set password and created_at on create
+        if (!isUpdate) {
+          data.password = hashedPwd;
+          data.created_at = new Date();
+          // Assign UUID if not supplied by DB
+          data.id = uuidv4();
+        }
+
+        // Persist
+        await saveData({
+          table: "users",
+          data,
+          id: isUpdate ? id : null,
+        });
+
+        return {
+          success: true,
+          message: isUpdate
+            ? "User Account updated successfully"
+            : "User Account created successfully",
+          user: { id, ...data },
         };
       } catch (error) {
         throw new GraphQLError(error.message);
@@ -378,35 +514,13 @@ const userResolvers = {
     },
     deleteUser: async (parent, args, context) => {
       const { user_id } = args;
-      let connection;
-
       try {
-        // Authentication check
-        // if (!context.user) {
-        //   throw new GraphQLError("Unauthorized - You must be logged in", {
-        //     extensions: { code: "UNAUTHORIZED" },
-        //   });
-        // }
-
-        // Authorization - only allow admins or the user themselves to delete
-        // if (context.user.id !== user_id && context.user.role !== "ADMIN") {
-        //   throw new GraphQLError(
-        //     "Unauthorized - You don't have permission to delete this user",
-        //     {
-        //       extensions: { code: "FORBIDDEN" },
-        //     }
-        //   );
-        // }
-
         // Input validation
         if (!user_id) {
           throw new GraphQLError("User ID is required", {
             extensions: { code: "BAD_USER_INPUT" },
           });
         }
-
-        connection = await db.getConnection();
-        await connection.beginTransaction();
 
         // Check if user exists and isn't already deleted
         const [user] = await getUsers({ id: user_id, limit: 1 });
@@ -427,39 +541,23 @@ const userResolvers = {
         await saveData({
           table: "users",
           data: {
-            deleted: true, // or new Date() if your column is a timestamp
+            deleted: true,
             updated_at: new Date(),
-            // Optionally, you might want to clear sensitive data:
-            // email: `deleted_${user.email}`,
-            // password_hash: null
           },
           id: user_id,
-          connection: connection,
         });
-
-        await connection.commit();
 
         return {
           success: true,
           message: "User account deactivated successfully",
         };
       } catch (error) {
-        if (connection) {
-          await connection.rollback();
-        }
-
         if (error instanceof GraphQLError) {
           throw error;
         }
 
         console.error("User deletion error:", error);
-        throw new GraphQLError("Failed to deactivate user account", {
-          extensions: { code: "INTERNAL_SERVER_ERROR" },
-        });
-      } finally {
-        if (connection) {
-          connection.release();
-        }
+        throw new GraphQLError("Failed to deactivate user account");
       }
     },
   },

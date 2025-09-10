@@ -22,8 +22,10 @@
     "graphql": "^16.11.0",
     "graphql-scalars": "^1.24.2",
     "graphql-tools": "^9.0.20",
+    "graphql-upload": "^17.0.0",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.14.1",
+    "sharp": "^0.34.3",
     "url": "^0.11.4",
     "uuid": "^11.1.0"
   }
