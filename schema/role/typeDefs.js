@@ -12,7 +12,7 @@ const userTypeDefs = `#graphql
         roles: [Role!]!
     }
 
-      type Mutation {
+    type Mutation {
         saveRole(payload: RoleInput!): RoleResponseMessage
         deleteRole(role_id: ID!): ResponseMessage
         updateRolePermissions(payload: RolePermissionInput!): ResponseMessage 

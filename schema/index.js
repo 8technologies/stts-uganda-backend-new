@@ -2,38 +2,37 @@ import { makeExecutableSchema } from "@graphql-tools/schema";
 import { mergeTypeDefs, mergeResolvers } from "@graphql-tools/merge";
 import { loadFiles } from "@graphql-tools/load-files";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
-// Get the current directory
+// ESM-safe __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function main() {
-  const typeDefsArray = await loadFiles(
-    path.join(__dirname, "./**/typeDefs.js")
-  );
-  const resolversArray = await loadFiles(
-    path.join(__dirname, "./**/resolvers.js")
-  );
+// helper to make a POSIX glob on Windows
+const toPosix = (p) => p.split(path.sep).join("/");
 
-  return {
-    typeDefsArray,
-    resolversArray,
+async function main() {
+  const base = toPosix(__dirname);
+
+  // Build POSIX-style globs so globbing works cross-platform
+  const typeDefsGlob   = `${base}/**/typeDefs.js`;
+  const resolversGlob  = `${base}/**/resolvers.js`;
+
+  // Force load-files to import via file:// URLs on Windows
+  const opts = {
+    requireMethod: async (p) => import(pathToFileURL(p).href),
   };
+
+  const typeDefsArray  = await loadFiles(typeDefsGlob, opts);
+  const resolversArray = await loadFiles(resolversGlob, opts);
+
+  return { typeDefsArray, resolversArray };
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
 const { typeDefsArray, resolversArray } = await main();
 
-// Merge typeDefs and resolvers
-export const typeDefs = mergeTypeDefs(typeDefsArray);
+export const typeDefs  = mergeTypeDefs(typeDefsArray);
 export const resolvers = mergeResolvers(resolversArray);
 
-// console.log(typeDefsArray);
-// const schema = makeExecutableSchema({
-//   typeDefs: typeDefs,
-//   resolvers: resolvers,
-// });
+// If you want the executable schema:
+// export const schema = makeExecutableSchema({ typeDefs, resolvers });
