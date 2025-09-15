@@ -81,12 +81,14 @@ const applicationFormsResolvers = {
       );
 
       return await getForms({
-        user_id: user_id,
+        user_id: hasPermission(userPermissions, "can_manage_all_forms")
+          ? null
+          : user_id,
         form_type: "sr4",
       });
     },
     sr4_application_details: async (_, args, context) => {
-      const {id} = args
+      const { id } = args;
       const userPermissions = context.req.user.permissions;
 
       checkPermission(
@@ -95,7 +97,7 @@ const applicationFormsResolvers = {
         "You dont have permissions to view SR4 forms"
       );
 
-      const results =  await getForms({
+      const results = await getForms({
         id,
         form_type: "sr4",
       });

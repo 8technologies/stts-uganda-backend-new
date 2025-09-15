@@ -110,16 +110,16 @@ const applicationFormsTypeDefs = `#graphql
     }
     enum Sr4Type {
         seed_merchant
-        seed_exporterOrimporter
+        seed_exporter_or_importer
     }
 
     enum StatusType {
        pending
-       accept
-       reject
-       halt
-       assign_inspector
-       recommend 
+       accepted
+       rejected
+       halted
+       assigned_inspector
+       recommended
     }
 
     enum FormType {
