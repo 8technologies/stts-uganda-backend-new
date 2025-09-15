@@ -14,6 +14,7 @@ const userTypeDefs = `#graphql
         role_name: String
         created_at: DateTime!
         updated_at: DateTime!
+        sr4_applications: [SR4ApplicationForm]
     }
 
 

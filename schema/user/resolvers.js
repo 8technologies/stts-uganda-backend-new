@@ -9,6 +9,7 @@ import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs";
 import saveImage from "../../helpers/saveImage.js";
 import tryParseJSON from "../../helpers/tryParseJSON.js";
 import { getRoles } from "../role/resolvers.js";
+import { getForms } from "../application_form/resolvers.js";
 
 const loginUser = async ({ username, password, user_id, context }) => {
   try {
@@ -139,6 +140,14 @@ const userResolvers = {
 
       return results;
     },
+  },
+  User: {
+    sr4_applications: async (parent) => {
+     return await getForms({
+        inspector_id: parent.id,
+        form_type: "sr4"
+      })
+    }
   },
   Mutation: {
     register: async (parent, args, context) => {
