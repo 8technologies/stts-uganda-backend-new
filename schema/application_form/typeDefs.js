@@ -23,7 +23,7 @@ const applicationFormsTypeDefs = `#graphql
         have_conversant_seed_matters: Boolean
         have_adequate_land_for_production: Boolean
         have_internal_quality_program: Boolean
-        souce_of_seed: String
+        source_of_seed: String
         receipt: String
         accept_declaration: Boolean
         valid_from: Date
@@ -36,7 +36,7 @@ const applicationFormsTypeDefs = `#graphql
         marketing_of_other: String
         have_adequate_storage: Boolean
         seed_board_registration_number: String
-        type: String
+        type: Sr4Type
         processing_of_other: String
         inspector: User
         
@@ -71,6 +71,48 @@ const applicationFormsTypeDefs = `#graphql
         type: String
     }
 
+    type QDsApplicationForm {
+        id: ID
+        user_id: String
+        name_of_applicant: String
+        address: String
+        phone_number: String
+        farm_location: String
+        recommendation: String
+        certification: String
+        company_initials: String
+        premises_location: String
+        years_of_expirience: String
+        dealers_in: String
+        previous_grower_number: String
+        cropping_histroy: String
+        have_adequate_isolation: Boolean
+        have_adequate_labor: Boolean
+        aware_of_minimum_standards: Boolean
+        signature_of_applicant: String
+        grower_number: String
+        registration_number: String
+        valid_from: Date
+        valid_until: Date
+        status: StatusType
+        inspector_id: String
+        status_comment: String
+        inspector_comment: String
+        have_been_qds:Boolean
+        isolation_distance: Int
+        number_of_labors: Int
+        have_adequate_storage_facility: Boolean
+        is_not_used: Boolean
+        examination_category: Int
+        created_at: Date
+        updated_at: Date
+
+    }
+    enum Sr4Type {
+        seed_merchant
+        seed_exporterOrimporter
+    }
+
     enum StatusType {
        pending
        accept
@@ -80,14 +122,21 @@ const applicationFormsTypeDefs = `#graphql
        recommend 
     }
 
+    enum FormType {
+        sr4
+        sr6
+        qds
+    }
+
     type Query {
         sr4_applications: [SR4ApplicationForm!]!
+        sr4_application_details(id: ID!): SR4ApplicationForm
         sr6_applications:[SR6ApplicationForm!]!
-        qds_applications:[SR4ApplicationForm!]!
+        qds_applications:[QDsApplicationForm!]!
     }
 
     type Mutation{
-        saveForm(payload: GenericFormInput!, form: String) : FormResponseMessage
+        saveSr4Form(payload: SR4ApplicationFormInput!) : Sr4ResponseMessage
     }
 
     input GenericFormInput {
@@ -99,7 +148,6 @@ const applicationFormsTypeDefs = `#graphql
 
     input SR4ApplicationFormInput {
         id: ID
-        user_id: String
         name_of_applicant: String!
         address: String!
         phone_number: String!
@@ -119,7 +167,7 @@ const applicationFormsTypeDefs = `#graphql
         have_conversant_seed_matters: Boolean
         have_adequate_land_for_production: Boolean
         have_internal_quality_program: Boolean
-        souce_of_seed: String
+        source_of_seed: String
         receipt: String
         accept_declaration: Boolean
         valid_from: Boolean
@@ -132,7 +180,7 @@ const applicationFormsTypeDefs = `#graphql
         marketing_of_other: String
         have_adequate_storage: Boolean
         seed_board_registration_number: String
-        type: String
+        type: Sr4Type
         processing_of_other: String
     }
 
@@ -165,10 +213,10 @@ const applicationFormsTypeDefs = `#graphql
         type: String
     }
 
-    type FormResponseMessage{
+    type Sr4ResponseMessage{
         success: Boolean
         message: String
-        data: JSON
+        result: SR4ApplicationForm
     }
 
 
