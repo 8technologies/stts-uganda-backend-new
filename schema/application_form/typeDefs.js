@@ -53,7 +53,7 @@ const applicationFormsTypeDefs = `#graphql
         years_of_expirience: String
         dealers_in: String
         previous_grower_number: String
-        cropping_histroy: String
+        cropping_history: String
         have_adequate_isolation: Boolean
         have_adequate_labor: Boolean
         aware_of_minimum_standards: Boolean
@@ -68,7 +68,7 @@ const applicationFormsTypeDefs = `#graphql
         recommendation: String
         have_adequate_storage: Boolean
         seed_grower_in_past: Boolean
-        type: String
+        type: Sr6Type
     }
 
     type QDsApplicationForm {
@@ -85,7 +85,7 @@ const applicationFormsTypeDefs = `#graphql
         years_of_expirience: String
         dealers_in: String
         previous_grower_number: String
-        cropping_histroy: String
+        cropping_history: String
         have_adequate_isolation: Boolean
         have_adequate_labor: Boolean
         aware_of_minimum_standards: Boolean
@@ -112,6 +112,10 @@ const applicationFormsTypeDefs = `#graphql
         seed_merchant
         seed_exporterOrimporter
     }
+    enum Sr6Type {
+        seed_breeder
+        seed_producer
+    }
 
     enum StatusType {
        pending
@@ -137,6 +141,7 @@ const applicationFormsTypeDefs = `#graphql
 
     type Mutation{
         saveSr4Form(payload: SR4ApplicationFormInput!) : Sr4ResponseMessage
+        saveSr6Form(payload: SR6ApplicationFormInput!) : Sr6ResponseMessage
     }
 
     input GenericFormInput {
@@ -186,16 +191,15 @@ const applicationFormsTypeDefs = `#graphql
 
     input SR6ApplicationFormInput {
         id: ID
-        user_id:String
         name_of_applicant:String
         address:String
         phone_number: String
         company_initials: String
         premises_location: String
-        years_of_expirience: String
+        years_of_experience: String
         dealers_in: String
         previous_grower_number: String
-        cropping_histroy: String
+        cropping_history: String
         have_adequate_isolation: Boolean
         have_adequate_labor: Boolean
         aware_of_minimum_standards: Boolean
@@ -219,8 +223,11 @@ const applicationFormsTypeDefs = `#graphql
         result: SR4ApplicationForm
     }
 
-
-   
+    type Sr6ResponseMessage{
+        success: Boolean
+        message: String
+        result: SR6ApplicationForm
+    }
 
 `;
 
