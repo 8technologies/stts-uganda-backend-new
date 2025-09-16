@@ -154,8 +154,10 @@ const userResolvers = {
       const {
         id,
         username,
-        first_name,
-        other_names,
+        name,
+        company_initials,
+        premises_location,
+        phone_number,
         password,
         email,
         district,
@@ -194,8 +196,10 @@ const userResolvers = {
         const data = {
           username,
           email,
-          first_name,
-          other_names,
+          name,
+          company_initials,
+          premises_location,
+          phone_number,
           password: hashedPwd,
           district,
           role_id: basic_user.id,
@@ -227,8 +231,10 @@ const userResolvers = {
       const {
         id,
         username,
-        first_name,
-        other_names,
+        name,
+        company_initials,
+        premises_location,
+        phone_number,
         password,
         email,
         district,
@@ -274,8 +280,10 @@ const userResolvers = {
         const data = {
           username,
           email,
-          first_name,
-          other_names,
+          name,
+          company_initials,
+          premises_location,
+          phone_number,
           district,
           updated_at: new Date(),
         };
@@ -359,7 +367,7 @@ const userResolvers = {
         // Prepare update data
         const updateData = {
           email: email || user.email, // Keep existing if not provided
-          first_name: firstName || user.first_name,
+          name: firstName || user.name,
           last_name: lastName || user.last_name,
           role: role || user.role,
           is_active: isActive !== undefined ? isActive : user.is_active,

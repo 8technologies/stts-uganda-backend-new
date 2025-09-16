@@ -116,7 +116,9 @@ const applicationFormsResolvers = {
       );
 
       return await getForms({
-        user_id: user_id,
+        user_id: hasPermission(userPermissions, "can_manage_all_forms")
+          ? null
+          : user_id,
         form_type: "sr4",
       });
     },
@@ -143,8 +145,8 @@ const applicationFormsResolvers = {
 
       checkPermission(
         userPermissions,
-        "can_view_sr4_forms",
-        "You dont have permissions to view SR4 forms"
+        "can_view_sr6_forms",
+        "You dont have permissions to view SR6 forms"
       );
 
       return await getForms({
@@ -152,19 +154,53 @@ const applicationFormsResolvers = {
         form_type: "sr6",
       });
     },
+    sr6_application_details: async (_, args, context) => {
+      const { id } = args;
+      const userPermissions = context.req.user.permissions;
+
+      checkPermission(
+        userPermissions,
+        "can_view_sr6_forms",
+        "You dont have permissions to view SR6 forms"
+      );
+
+      const results = await getForms({
+        id,
+        form_type: "sr6",
+      });
+
+      return results[0];
+    },
     qds_applications: async (_, args, context) => {
       const user_id = context.req.user.id;
       const userPermissions = context.req.user.permissions;
 
       checkPermission(
         userPermissions,
-        "can_view_sr4_forms",
-        "You dont have permissions to view SR4 forms"
+        "can_view_qds_forms",
+        "You dont have permissions to view QDs forms"
       );
       return await getForms({
-        id: user_id,
-        form: "qds",
+        user_id: user_id,
+        form_type: "qds",
       });
+    },
+    qds_application_details: async (_, args, context) => {
+      const { id } = args;
+      const userPermissions = context.req.user.permissions;
+
+      checkPermission(
+        userPermissions,
+        "can_view_qds_forms",
+        "You dont have permissions to view QDs forms"
+      );
+
+      const results = await getForms({
+        id,
+        form_type: "qds",
+      });
+
+      return results[0];
     },
   },
   SR4ApplicationForm: {
@@ -339,6 +375,7 @@ const applicationFormsResolvers = {
           type,
         } = args.payload;
 
+
         // construct the data object for application forms
         let data = {
           user_id,
@@ -394,7 +431,7 @@ const applicationFormsResolvers = {
         return {
           success: true,
           message: args.payload.id
-            ? " SR6 form updated successfully"
+            ? "SR6 form updated successfully"
             : "SR6 form Created Successfully",
           result: {
             id: save_id,
@@ -408,6 +445,120 @@ const applicationFormsResolvers = {
         throw new GraphQLError(error.message);
       }
     },
+    saveQdsForm: async (parent, args, context) => {
+      const connection = await db.getConnection();
+      try {
+        await connection.beginTransaction();
+        const user_id = context.req.user.id;
+        const {
+          id,
+          name_of_applicant,
+          address,
+          phone_number,
+          recommendation,
+          certification,
+          company_initials,
+          premises_location,
+          years_of_experience,
+          dealers_in,
+          previous_grower_number,
+          cropping_history,
+          have_adequate_isolation,
+          have_adequate_labor,
+          aware_of_minimum_standards,
+          signature_of_applicant,
+          grower_number,
+          registration_number,
+          valid_from,
+          valid_until,
+          status,
+          inspector_id,
+          status_comment,
+          inspector_comment,
+          have_been_qds,
+          isolation_distance,
+          number_of_labors,
+          have_adequate_storage_facility,
+          is_not_used,
+          examination_category,
+        } = args.payload;
+
+
+        // construct the data object for application forms
+        let data = {
+          user_id,
+          name_of_applicant,
+          address,
+          phone_number,
+          recommendation,
+          company_initials,
+          premises_location,
+          years_of_experience,
+          dealers_in,
+          previous_grower_number,
+          cropping_history,
+          signature_of_applicant,
+          grower_number,
+          registration_number,
+          valid_from,
+          valid_until,
+          status,
+          inspector_id,
+          status_comment,
+          form_type: "qds"
+        };
+
+        const save_id = await saveData({
+          table: "application_forms",
+          data,
+          id,
+          connection,
+        });
+
+        // data object for qds Forms
+        let qds_data = {
+          application_form_id: save_id,
+          certification,
+          have_adequate_isolation,
+          have_adequate_labor,
+          aware_of_minimum_standards,
+          inspector_comment,
+          have_been_qds,
+          isolation_distance,
+          number_of_labors,
+          have_adequate_storage_facility,
+          is_not_used,
+          examination_category,
+        };
+
+        const save_id2 = await saveData({
+          table: "qds_application_forms",
+          data: qds_data,
+          id,
+          idColumn: "application_form_id",
+          connection,
+        });
+
+        await connection.commit();
+
+        return {
+          success: true,
+          message: args.payload.id
+            ? "QDs form updated successfully"
+            : "QDs form Created Successfully",
+          result: {
+            id: save_id,
+            ...data,
+            ...qds_data,
+          },
+        };
+      } catch (error) {
+        console.log("error", error);
+        await connection.rollback();
+        throw new GraphQLError(error.message);
+      }
+    },
+    
   },
 };
 
