@@ -50,7 +50,7 @@ const applicationFormsTypeDefs = `#graphql
         phone_number: String
         company_initials: String
         premises_location: String
-        years_of_expirience: String
+        years_of_experience: String
         dealers_in: String
         previous_grower_number: String
         cropping_history: String
@@ -82,7 +82,7 @@ const applicationFormsTypeDefs = `#graphql
         certification: String
         company_initials: String
         premises_location: String
-        years_of_expirience: String
+        years_of_experience: String
         dealers_in: String
         previous_grower_number: String
         cropping_history: String
@@ -104,8 +104,6 @@ const applicationFormsTypeDefs = `#graphql
         have_adequate_storage_facility: Boolean
         is_not_used: Boolean
         examination_category: Int
-        created_at: Date
-        updated_at: Date
 
     }
     enum Sr4Type {
@@ -136,12 +134,15 @@ const applicationFormsTypeDefs = `#graphql
         sr4_applications: [SR4ApplicationForm!]!
         sr4_application_details(id: ID!): SR4ApplicationForm
         sr6_applications:[SR6ApplicationForm!]!
+        sr6_application_details(id: ID!): SR6ApplicationForm
         qds_applications:[QDsApplicationForm!]!
+        qds_application_details(id: ID!): QDsApplicationForm
     }
 
     type Mutation{
         saveSr4Form(payload: SR4ApplicationFormInput!) : Sr4ResponseMessage
         saveSr6Form(payload: SR6ApplicationFormInput!) : Sr6ResponseMessage
+        saveQdsForm(payload: QDSApplicationFormInput!) : QdsResponseMessage
     }
 
     input GenericFormInput {
@@ -217,6 +218,39 @@ const applicationFormsTypeDefs = `#graphql
         type: String
     }
 
+    input QDSApplicationFormInput {
+        id: ID
+        name_of_applicant: String
+        address: String
+        phone_number: String
+        recommendation: String
+        certification: String
+        company_initials: String
+        premises_location: String
+        years_of_experience: String
+        dealers_in: String
+        previous_grower_number: String
+        cropping_history: String
+        have_adequate_isolation: Boolean
+        have_adequate_labor: Boolean
+        aware_of_minimum_standards: Boolean
+        signature_of_applicant: String
+        grower_number: String
+        registration_number: String
+        valid_from: Date
+        valid_until: Date
+        status: StatusType
+        inspector_id: String
+        status_comment: String
+        inspector_comment: String
+        have_been_qds:Boolean
+        isolation_distance: Int
+        number_of_labors: Int
+        have_adequate_storage_facility: Boolean
+        is_not_used: Boolean
+        examination_category: Int
+    }
+
     type Sr4ResponseMessage{
         success: Boolean
         message: String
@@ -227,6 +261,12 @@ const applicationFormsTypeDefs = `#graphql
         success: Boolean
         message: String
         result: SR6ApplicationForm
+    }
+    
+    type QdsResponseMessage{
+        success: Boolean
+        message: String
+        result: QDsApplicationForm
     }
 
 `;
