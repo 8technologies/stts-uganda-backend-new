@@ -103,7 +103,7 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
     console.log("error", error);
     throw new GraphQLError("Error fetching forms");
   }
-};
+};}
 
 const applicationFormsResolvers = {
   JSON: JSONResolver,
