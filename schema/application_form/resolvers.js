@@ -13,7 +13,8 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
     let where = "";
     let extra_join = "";
     let extra_select = "";
-
+    
+    
     if (id) {
       where += " AND application_forms.id = ?";
       values.push(id);
@@ -29,7 +30,7 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
       values.push(form_type);
     }
 
-      if (inspector_id) {
+    if (inspector_id) {
       where += " AND application_forms.inspector_id = ?";
       values.push(inspector_id);
     }
@@ -150,7 +151,9 @@ const applicationFormsResolvers = {
       );
 
       return await getForms({
-        user_id: user_id,
+        user_id: hasPermission(userPermissions, "can_manage_all_forms")
+          ? null
+          : user_id,
         form_type: "sr6",
       });
     },
@@ -181,7 +184,9 @@ const applicationFormsResolvers = {
         "You dont have permissions to view QDs forms"
       );
       return await getForms({
-        user_id: user_id,
+        user_id: hasPermission(userPermissions, "can_manage_all_forms")
+          ? null
+          : user_id,
         form_type: "qds",
       });
     },
@@ -217,6 +222,72 @@ const applicationFormsResolvers = {
         throw new GraphQLError(error.message);
       }
     },
+    user: async (parent) => {
+      try { 
+        const user_id = parent.user_id;
+        
+        const [user] = await getUsers({
+          id: user_id,
+        });
+        return user
+      }catch (error) {
+        throw new GraphQLError(error.message);
+      }
+      }
+  },
+  SR6ApplicationForm: {
+    inspector: async (parent, args, context) => {
+      try {
+        const inspector_id = parent.inspector_id;
+
+        const [user] = await getUsers({
+          id: inspector_id,
+        });
+
+        return user;
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+    user: async (parent) => {
+      try { 
+        const user_id = parent.user_id;
+        
+        const [user] = await getUsers({
+          id: user_id,
+        });
+        return user
+      }catch (error) {
+        throw new GraphQLError(error.message);
+      }
+      }
+  },
+  QDsApplicationForm: {
+    inspector: async (parent, args, context) => {
+      try {
+        const inspector_id = parent.inspector_id;
+
+        const [user] = await getUsers({
+          id: inspector_id,
+        });
+
+        return user;
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+    user: async (parent) => {
+      try { 
+        const user_id = parent.user_id;
+        
+        const [user] = await getUsers({
+          id: user_id,
+        });
+        return user
+      }catch (error) {
+        throw new GraphQLError(error.message);
+      }
+      }
   },
   Mutation: {
     saveSr4Form: async (parent, args, context) => {
@@ -226,15 +297,9 @@ const applicationFormsResolvers = {
         const user_id = context.req.user.id;
         const {
           id,
-          name_of_applicant,
-          address,
-          phone_number,
-          company_initials,
-          premises_location,
           years_of_experience,
           experienced_in,
           dealers_in,
-          processing_of,
           marketing_of,
           have_adequate_land,
           land_size,
@@ -246,37 +311,32 @@ const applicationFormsResolvers = {
           have_adequate_land_for_production,
           have_internal_quality_program,
           source_of_seed,
-          receipt,
-          accept_declaration,
-          valid_from,
-          valid_until,
+          // receipt,
+          // accept_declaration,
+          // valid_from,
+          // valid_until,
           status,
-          status_comment,
-          recommendation,
-          inspector_id,
+          // status_comment,
+          // recommendation,
+          // inspector_id,
           dealers_in_other,
           marketing_of_other,
           have_adequate_storage,
-          seed_board_registration_number,
+          // seed_board_registration_number,
           type,
-          processing_of_other,
+          // processing_of_other,
         } = args.payload;
 
         // construct the data object for application forms
         let data = {
           user_id,
-          name_of_applicant,
-          address,
-          phone_number,
-          company_initials,
-          premises_location,
           years_of_experience,
-          valid_from,
-          valid_until,
-          inspector_id,
+          // valid_from,
+          // valid_until,
+          // inspector_id,
           status,
-          status_comment,
-          recommendation,
+          // status_comment,
+          // recommendation,
           have_adequate_storage,
           dealers_in,
           form_type: "sr4"
@@ -294,7 +354,6 @@ const applicationFormsResolvers = {
           application_form_id: save_id,
           experienced_in,
           type,
-          processing_of,
           have_adequate_land,
           land_size,
           equipment,
@@ -305,11 +364,11 @@ const applicationFormsResolvers = {
           have_adequate_land_for_production,
           have_internal_quality_program,
           source_of_seed,
-          receipt,
-          accept_declaration,
+          // receipt,
+          // accept_declaration,
           dealers_in_other,
-          seed_board_registration_number,
-          processing_of_other,
+          // // seed_board_registration_number,
+          // processing_of_other,
           marketing_of,
           marketing_of_other,
         };
@@ -336,7 +395,6 @@ const applicationFormsResolvers = {
           },
         };
       } catch (error) {
-        console.log("error", error);
         await connection.rollback();
         throw new GraphQLError(error.message);
       }
@@ -349,11 +407,6 @@ const applicationFormsResolvers = {
         const user_id = context.req.user.id;
         const {
           id,
-          name_of_applicant,
-          address,
-          phone_number,
-          company_initials,
-          premises_location,
           years_of_experience,
           dealers_in,
           previous_grower_number,
@@ -379,11 +432,6 @@ const applicationFormsResolvers = {
         // construct the data object for application forms
         let data = {
           user_id,
-          name_of_applicant,
-          address,
-          phone_number,
-          company_initials,
-          premises_location,
           previous_grower_number,
           years_of_experience,
           signature_of_applicant,
@@ -452,13 +500,7 @@ const applicationFormsResolvers = {
         const user_id = context.req.user.id;
         const {
           id,
-          name_of_applicant,
-          address,
-          phone_number,
-          recommendation,
           certification,
-          company_initials,
-          premises_location,
           years_of_experience,
           dealers_in,
           previous_grower_number,
@@ -469,12 +511,7 @@ const applicationFormsResolvers = {
           signature_of_applicant,
           grower_number,
           registration_number,
-          valid_from,
-          valid_until,
           status,
-          inspector_id,
-          status_comment,
-          inspector_comment,
           have_been_qds,
           isolation_distance,
           number_of_labors,
@@ -487,12 +524,6 @@ const applicationFormsResolvers = {
         // construct the data object for application forms
         let data = {
           user_id,
-          name_of_applicant,
-          address,
-          phone_number,
-          recommendation,
-          company_initials,
-          premises_location,
           years_of_experience,
           dealers_in,
           previous_grower_number,
@@ -500,11 +531,7 @@ const applicationFormsResolvers = {
           signature_of_applicant,
           grower_number,
           registration_number,
-          valid_from,
-          valid_until,
           status,
-          inspector_id,
-          status_comment,
           form_type: "qds"
         };
 
@@ -522,7 +549,6 @@ const applicationFormsResolvers = {
           have_adequate_isolation,
           have_adequate_labor,
           aware_of_minimum_standards,
-          inspector_comment,
           have_been_qds,
           isolation_distance,
           number_of_labors,
