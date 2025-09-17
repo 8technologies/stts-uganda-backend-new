@@ -29,7 +29,7 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
       values.push(form_type);
     }
 
-      if (inspector_id) {
+    if (inspector_id) {
       where += " AND application_forms.inspector_id = ?";
       values.push(inspector_id);
     }
@@ -91,6 +91,7 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
       application_forms
       ${extra_join}
       WHERE application_forms.deleted = 0 ${where}
+      ORDER BY created_at DESC
     `;
 
     const [results] = await db.execute(sql, values);
@@ -174,6 +175,8 @@ const applicationFormsResolvers = {
       try {
         const inspector_id = parent.inspector_id;
 
+        if (!inspector_id) return null;
+
         const [user] = await getUsers({
           id: inspector_id,
         });
@@ -228,6 +231,8 @@ const applicationFormsResolvers = {
           processing_of_other,
         } = args.payload;
 
+        console.log("args.payload", args.payload);
+
         // construct the data object for application forms
         let data = {
           user_id,
@@ -237,16 +242,18 @@ const applicationFormsResolvers = {
           company_initials,
           premises_location,
           years_of_experience,
-          valid_from,
-          valid_until,
-          inspector_id,
-          status,
-          status_comment,
-          recommendation,
+          // valid_from: valid_from || null,
+          // valid_until: valid_until || null,
+          // inspector_id: inspector_id || null,
+          status: "pending",
+          // status_comment,
+          // recommendation,
           have_adequate_storage,
           dealers_in,
-          form_type: "sr4"
+          form_type: "sr4",
         };
+
+        console.log("data", data);
 
         const save_id = await saveData({
           table: "application_forms",
@@ -260,10 +267,10 @@ const applicationFormsResolvers = {
           application_form_id: save_id,
           experienced_in,
           type,
-          processing_of,
+          // processing_of,
           have_adequate_land,
           land_size,
-          equipment,
+          // equipment,
           have_adequate_equipment,
           have_contractual_agreement,
           have_adequate_field_officers,
@@ -271,14 +278,16 @@ const applicationFormsResolvers = {
           have_adequate_land_for_production,
           have_internal_quality_program,
           source_of_seed,
-          receipt,
-          accept_declaration,
-          dealers_in_other,
-          seed_board_registration_number,
-          processing_of_other,
+          receipt: receipt || null,
+          accept_declaration: accept_declaration || null,
+          // dealers_in_other,
+          // seed_board_registration_number,
+          // processing_of_other,
           marketing_of,
-          marketing_of_other,
+          // marketing_of_other,
         };
+
+        console.log("sr4_data", sr4_data);
 
         const save_id2 = await saveData({
           table: "sr4_application_forms",
@@ -363,7 +372,7 @@ const applicationFormsResolvers = {
           recommendation,
           have_adequate_storage,
           dealers_in,
-          form_type: "sr6"
+          form_type: "sr6",
         };
 
         const save_id = await saveData({

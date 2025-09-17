@@ -39,7 +39,8 @@ const applicationFormsTypeDefs = `#graphql
         type: Sr4Type
         processing_of_other: String
         inspector: User
-        
+        created_at: DateTime,
+        updated_at: DateTime
     }
 
     type SR6ApplicationForm {
@@ -112,11 +113,12 @@ const applicationFormsTypeDefs = `#graphql
         seed_merchant
         seed_exporter_or_importer
     }
+
     enum Sr6Type {
         seed_breeder
         seed_producer
     }
-
+    
     enum StatusType {
        pending
        accepted
