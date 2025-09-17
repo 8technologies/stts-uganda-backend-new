@@ -34,7 +34,9 @@ const applicationFormsTypeDefs = `#graphql
         type: Sr4Type
         processing_of_other: String
         inspector: User
-        
+        user: User
+        created_at: DateTime,
+        updated_at: DateTime
     }
 
     type SR6ApplicationForm {
