@@ -5,10 +5,12 @@ const userTypeDefs = `#graphql
     type User {
         id: ID!
         username: String!
-        first_name: String!
-        other_names: String!
+        name: String!
+        company_initials: String!
         email: String!
         district: String!
+        premises_location: String!
+        phone_number: String!
         image: String
         role_id: String
         role_name: String
@@ -21,19 +23,23 @@ const userTypeDefs = `#graphql
     input CreateUserInput {
         id: ID,
         username: String!
-        first_name: String!
-        other_names: String!
-        password: String
+        name: String!
+        company_initials: String!
         email: String!
         district: String!
+        premises_location: String!
+        phone_number: String!
+        password: String
         image: Upload,
         role_id: String
     }
 
      input RegisterInput {
         username: String!
-        first_name: String!
-        other_names: String!
+        name: String!
+        company_initials: String!
+        premises_location: String!
+        phone_number: String!
         password: String
         email: String!
         district: String!
