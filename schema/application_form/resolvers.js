@@ -13,8 +13,7 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
     let where = "";
     let extra_join = "";
     let extra_select = "";
-    
-    
+
     if (id) {
       where += " AND application_forms.id = ?";
       values.push(id);
@@ -31,15 +30,15 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
     }
 
     if (inspector_id) {
-    if (inspector_id) {
-      where += " AND application_forms.inspector_id = ?";
-      values.push(inspector_id);
-    }
+      if (inspector_id) {
+        where += " AND application_forms.inspector_id = ?";
+        values.push(inspector_id);
+      }
 
-    if (form_type == "sr4") {
-      extra_join +=
-        " LEFT JOIN sr4_application_forms ON sr4_application_forms.application_form_id = application_forms.id";
-      extra_select += ` sr4_application_forms.experienced_in,
+      if (form_type == "sr4") {
+        extra_join +=
+          " LEFT JOIN sr4_application_forms ON sr4_application_forms.application_form_id = application_forms.id";
+        extra_select += ` sr4_application_forms.experienced_in,
                         sr4_application_forms.processing_of, 
                         sr4_application_forms.marketing_of,
                         sr4_application_forms.have_adequate_land, 
@@ -59,22 +58,22 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
                         sr4_application_forms.seed_board_registration_number, 
                         sr4_application_forms.processing_of_other,
                         `;
-    }
-    if (form_type == "sr6") {
-      extra_join +=
-        " LEFT JOIN sr6_application_forms ON sr6_application_forms.application_form_id = application_forms.id";
-      extra_select += ` sr6_application_forms.have_adequate_isolation,
+      }
+      if (form_type == "sr6") {
+        extra_join +=
+          " LEFT JOIN sr6_application_forms ON sr6_application_forms.application_form_id = application_forms.id";
+        extra_select += ` sr6_application_forms.have_adequate_isolation,
                             sr6_application_forms.have_adequate_labor, 
                             sr6_application_forms.aware_of_minimum_standards,
                             sr6_application_forms.seed_grower_in_past, 
                             sr6_application_forms.type, 
                             `;
-    }
+      }
 
-    if (form_type == "qds") {
-      extra_join +=
-        " LEFT JOIN qds_application_forms ON qds_application_forms.application_form_id = application_forms.id";
-      extra_select += ` qds_application_forms.certification,
+      if (form_type == "qds") {
+        extra_join +=
+          " LEFT JOIN qds_application_forms ON qds_application_forms.application_form_id = application_forms.id";
+        extra_select += ` qds_application_forms.certification,
                             qds_application_forms.inspector_comment, 
                             qds_application_forms.have_been_qds,
                             qds_application_forms.isolation_distance, 
@@ -83,9 +82,9 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
                             qds_application_forms.is_not_used, 
                             qds_application_forms.examination_category, 
                             `;
-    }
+      }
 
-    let sql = `
+      let sql = `
       SELECT 
       ${extra_select}
       application_forms.*
@@ -96,14 +95,15 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
       ORDER BY created_at DESC
     `;
 
-    const [results] = await db.execute(sql, values);
+      const [results] = await db.execute(sql, values);
 
-    return results;
+      return results;
+    }
   } catch (error) {
     console.log("error", error);
     throw new GraphQLError("Error fetching forms");
   }
-};}
+};
 
 const applicationFormsResolvers = {
   JSON: JSONResolver,
@@ -283,17 +283,17 @@ const applicationFormsResolvers = {
       }
     },
     user: async (parent) => {
-      try { 
+      try {
         const user_id = parent.user_id;
-        
+
         const [user] = await getUsers({
           id: user_id,
         });
-        return user
-      }catch (error) {
+        return user;
+      } catch (error) {
         throw new GraphQLError(error.message);
       }
-      }
+    },
   },
   SR6ApplicationForm: {
     inspector: async (parent, args, context) => {
@@ -310,17 +310,17 @@ const applicationFormsResolvers = {
       }
     },
     user: async (parent) => {
-      try { 
+      try {
         const user_id = parent.user_id;
-        
+
         const [user] = await getUsers({
           id: user_id,
         });
-        return user
-      }catch (error) {
+        return user;
+      } catch (error) {
         throw new GraphQLError(error.message);
       }
-      }
+    },
   },
   QDsApplicationForm: {
     inspector: async (parent, args, context) => {
@@ -337,17 +337,17 @@ const applicationFormsResolvers = {
       }
     },
     user: async (parent) => {
-      try { 
+      try {
         const user_id = parent.user_id;
-        
+
         const [user] = await getUsers({
           id: user_id,
         });
-        return user
-      }catch (error) {
+        return user;
+      } catch (error) {
         throw new GraphQLError(error.message);
       }
-      }
+    },
   },
   SR6ApplicationForm: {
     inspector: async (parent, args, context) => {
@@ -364,17 +364,17 @@ const applicationFormsResolvers = {
       }
     },
     user: async (parent) => {
-      try { 
+      try {
         const user_id = parent.user_id;
-        
+
         const [user] = await getUsers({
           id: user_id,
         });
-        return user
-      }catch (error) {
+        return user;
+      } catch (error) {
         throw new GraphQLError(error.message);
       }
-      }
+    },
   },
   QDsApplicationForm: {
     inspector: async (parent, args, context) => {
@@ -391,17 +391,17 @@ const applicationFormsResolvers = {
       }
     },
     user: async (parent) => {
-      try { 
+      try {
         const user_id = parent.user_id;
-        
+
         const [user] = await getUsers({
           id: user_id,
         });
-        return user
-      }catch (error) {
+        return user;
+      } catch (error) {
         throw new GraphQLError(error.message);
       }
-      }
+    },
   },
   Mutation: {
     saveSr4Form: async (parent, args, context) => {
@@ -662,7 +662,7 @@ const applicationFormsResolvers = {
           grower_number,
           registration_number,
           status,
-          form_type: "qds"
+          form_type: "qds",
         };
 
         const save_id = await saveData({
