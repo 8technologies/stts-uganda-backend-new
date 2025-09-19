@@ -1,6 +1,9 @@
 const applicationFormsTypeDefs = `#graphql
     scalar Date
     scalar JSON
+    scalar Upload
+
+
     type SR4ApplicationForm {
         id: ID
         user_id: String
@@ -19,7 +22,7 @@ const applicationFormsTypeDefs = `#graphql
         have_adequate_land_for_production: Boolean
         have_internal_quality_program: Boolean
         source_of_seed: String
-        receipt: String
+        receipt_id: String
         accept_declaration: Boolean
         valid_from: Date
         valid_until: Date
@@ -154,7 +157,7 @@ const applicationFormsTypeDefs = `#graphql
         have_adequate_land_for_production: Boolean
         have_internal_quality_program: Boolean
         source_of_seed: String
-        # receipt: String
+        receipt: Upload
         # accept_declaration: Boolean
         # valid_from: Boolean
         # valid_until: Boolean

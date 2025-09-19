@@ -6,6 +6,7 @@ import tryParseJSON from "../../helpers/tryParseJSON.js";
 import checkPermission from "../../helpers/checkPermission.js";
 import hasPermission from "../../helpers/hasPermission.js";
 import { getUsers } from "../user/resolvers.js";
+import saveUpload from "../../helpers/saveUpload.js";
 
 export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
   try {
@@ -30,15 +31,14 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
     }
 
     if (inspector_id) {
-      if (inspector_id) {
-        where += " AND application_forms.inspector_id = ?";
-        values.push(inspector_id);
-      }
+      where += " AND application_forms.inspector_id = ?";
+      values.push(inspector_id);
+    }
 
-      if (form_type == "sr4") {
-        extra_join +=
-          " LEFT JOIN sr4_application_forms ON sr4_application_forms.application_form_id = application_forms.id";
-        extra_select += ` sr4_application_forms.experienced_in,
+    if (form_type == "sr4") {
+      extra_join +=
+        " LEFT JOIN sr4_application_forms ON sr4_application_forms.application_form_id = application_forms.id";
+      extra_select += ` sr4_application_forms.experienced_in,
                         sr4_application_forms.processing_of, 
                         sr4_application_forms.marketing_of,
                         sr4_application_forms.have_adequate_land, 
@@ -57,23 +57,24 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
                         sr4_application_forms.marketing_of_other, 
                         sr4_application_forms.seed_board_registration_number, 
                         sr4_application_forms.processing_of_other,
+                        sr4_application_forms.type,
                         `;
-      }
-      if (form_type == "sr6") {
-        extra_join +=
-          " LEFT JOIN sr6_application_forms ON sr6_application_forms.application_form_id = application_forms.id";
-        extra_select += ` sr6_application_forms.have_adequate_isolation,
+    }
+    if (form_type == "sr6") {
+      extra_join +=
+        " LEFT JOIN sr6_application_forms ON sr6_application_forms.application_form_id = application_forms.id";
+      extra_select += ` sr6_application_forms.have_adequate_isolation,
                             sr6_application_forms.have_adequate_labor, 
                             sr6_application_forms.aware_of_minimum_standards,
                             sr6_application_forms.seed_grower_in_past, 
                             sr6_application_forms.type, 
                             `;
-      }
+    }
 
-      if (form_type == "qds") {
-        extra_join +=
-          " LEFT JOIN qds_application_forms ON qds_application_forms.application_form_id = application_forms.id";
-        extra_select += ` qds_application_forms.certification,
+    if (form_type == "qds") {
+      extra_join +=
+        " LEFT JOIN qds_application_forms ON qds_application_forms.application_form_id = application_forms.id";
+      extra_select += ` qds_application_forms.certification,
                             qds_application_forms.inspector_comment, 
                             qds_application_forms.have_been_qds,
                             qds_application_forms.isolation_distance, 
@@ -82,9 +83,9 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
                             qds_application_forms.is_not_used, 
                             qds_application_forms.examination_category, 
                             `;
-      }
+    }
 
-      let sql = `
+    let sql = `
       SELECT 
       ${extra_select}
       application_forms.*
@@ -95,10 +96,9 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
       ORDER BY created_at DESC
     `;
 
-      const [results] = await db.execute(sql, values);
+    const [results] = await db.execute(sql, values);
 
-      return results;
-    }
+    return results;
   } catch (error) {
     console.log("error", error);
     throw new GraphQLError("Error fetching forms");
@@ -109,21 +109,29 @@ const applicationFormsResolvers = {
   JSON: JSONResolver,
   Query: {
     sr4_applications: async (_, args, context) => {
-      const user_id = context.req.user.id;
-      const userPermissions = context.req.user.permissions;
+      try {
+        const user_id = context.req.user.id;
+        const userPermissions = context.req.user.permissions;
 
-      checkPermission(
-        userPermissions,
-        "can_view_sr4_forms",
-        "You dont have permissions to view SR4 forms"
-      );
+        checkPermission(
+          userPermissions,
+          "can_view_sr4_forms",
+          "You dont have permissions to view SR4 forms"
+        );
 
-      return await getForms({
-        user_id: hasPermission(userPermissions, "can_manage_all_forms")
-          ? null
-          : user_id,
-        form_type: "sr4",
-      });
+        const results = await getForms({
+          user_id: hasPermission(userPermissions, "can_manage_all_forms")
+            ? null
+            : user_id,
+          form_type: "sr4",
+        });
+
+        console.log("results", results);
+
+        return results;
+      } catch (error) {
+        console.log(error.message);
+      }
     },
     sr4_application_details: async (_, args, context) => {
       const { id } = args;
@@ -425,8 +433,8 @@ const applicationFormsResolvers = {
           have_adequate_land_for_production,
           have_internal_quality_program,
           source_of_seed,
-          // receipt,
-          // accept_declaration,
+          receipt,
+          accept_declaration,
           // valid_from,
           // valid_until,
           status,
@@ -473,7 +481,21 @@ const applicationFormsResolvers = {
           connection,
         });
 
-        // data object for sr4 Forms
+        // If a receipt was uploaded, save it and capture its public path
+        let savedReceiptInfo = null;
+        if (receipt) {
+          try {
+            savedReceiptInfo = await saveUpload({
+              file: receipt,
+              subdir: "form_attachments",
+            });
+          } catch (e) {
+            // If upload fails, rollback and bubble up
+            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+          }
+        }
+
+        // data object for sr4 Forms (conditionally include receipt only if provided)
         let sr4_data = {
           application_form_id: save_id,
           experienced_in,
@@ -488,13 +510,12 @@ const applicationFormsResolvers = {
           have_conversant_seed_matters,
           have_adequate_land_for_production,
           have_internal_quality_program,
-          source_of_seed,
+          source_of_seed: source_of_seed || null,
           // receipt,
           // accept_declaration,
-          dealers_in_other,
+          dealers_in_other: dealers_in_other || null,
           // // seed_board_registration_number,
           // processing_of_other,
-          receipt: receipt || null,
           accept_declaration: accept_declaration || null,
           // dealers_in_other,
           // seed_board_registration_number,
@@ -502,6 +523,8 @@ const applicationFormsResolvers = {
           marketing_of,
           // marketing_of_other,
         };
+
+        // Do not set receipt on sr4 table; receipt_id is kept on application_forms
 
         console.log("sr4_data", sr4_data);
 
@@ -512,6 +535,37 @@ const applicationFormsResolvers = {
           idColumn: "application_form_id",
           connection,
         });
+
+        // Record attachment metadata in form_attachments if a receipt was uploaded
+        if (savedReceiptInfo) {
+          try {
+            // const attachment_id = await saveData({
+            //   table: "form_attachments",
+            //   data: {
+            //     application_form_id: save_id,
+            //     form_type: "sr4",
+            //     field: "receipt",
+            //     file_name: savedReceiptInfo.filename,
+            //     file_path: savedReceiptInfo.path,
+            //   },
+            //   connection,
+            // });
+
+            // Update application_forms with receipt_id
+            await saveData({
+              table: "application_forms",
+              data: { receipt_id: savedReceiptInfo.filename },
+              id: save_id,
+              connection,
+            });
+          } catch (e) {
+            // Non-fatal for the core form save; log but do not block
+            console.error(
+              "Failed to save form_attachments record or update receipt_id:",
+              e.message
+            );
+          }
+        }
 
         await connection.commit();
 
