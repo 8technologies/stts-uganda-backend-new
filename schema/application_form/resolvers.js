@@ -6,6 +6,7 @@ import tryParseJSON from "../../helpers/tryParseJSON.js";
 import checkPermission from "../../helpers/checkPermission.js";
 import hasPermission from "../../helpers/hasPermission.js";
 import { getUsers } from "../user/resolvers.js";
+import saveUpload from "../../helpers/saveUpload.js";
 
 export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
   try {
@@ -13,8 +14,7 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
     let where = "";
     let extra_join = "";
     let extra_select = "";
-    
-    
+
     if (id) {
       where += " AND application_forms.id = ?";
       values.push(id);
@@ -57,6 +57,7 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
                         sr4_application_forms.marketing_of_other, 
                         sr4_application_forms.seed_board_registration_number, 
                         sr4_application_forms.processing_of_other,
+                        sr4_application_forms.type,
                         `;
     }
     if (form_type == "sr6") {
@@ -92,6 +93,7 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
       application_forms
       ${extra_join}
       WHERE application_forms.deleted = 0 ${where}
+      ORDER BY created_at DESC
     `;
 
     const [results] = await db.execute(sql, values);
@@ -107,21 +109,29 @@ const applicationFormsResolvers = {
   JSON: JSONResolver,
   Query: {
     sr4_applications: async (_, args, context) => {
-      const user_id = context.req.user.id;
-      const userPermissions = context.req.user.permissions;
+      try {
+        const user_id = context.req.user.id;
+        const userPermissions = context.req.user.permissions;
 
-      checkPermission(
-        userPermissions,
-        "can_view_sr4_forms",
-        "You dont have permissions to view SR4 forms"
-      );
+        checkPermission(
+          userPermissions,
+          "can_view_sr4_forms",
+          "You dont have permissions to view SR4 forms"
+        );
 
-      return await getForms({
-        user_id: hasPermission(userPermissions, "can_manage_all_forms")
-          ? null
-          : user_id,
-        form_type: "sr4",
-      });
+        const results = await getForms({
+          user_id: hasPermission(userPermissions, "can_manage_all_forms")
+            ? null
+            : user_id,
+          form_type: "sr4",
+        });
+
+        console.log("results", results);
+
+        return results;
+      } catch (error) {
+        console.log(error.message);
+      }
     },
     sr4_application_details: async (_, args, context) => {
       const { id } = args;
@@ -213,6 +223,8 @@ const applicationFormsResolvers = {
       try {
         const inspector_id = parent.inspector_id;
 
+        if (!inspector_id) return null;
+
         const [user] = await getUsers({
           id: inspector_id,
         });
@@ -223,17 +235,17 @@ const applicationFormsResolvers = {
       }
     },
     user: async (parent) => {
-      try { 
+      try {
         const user_id = parent.user_id;
-        
+
         const [user] = await getUsers({
           id: user_id,
         });
-        return user
-      }catch (error) {
+        return user;
+      } catch (error) {
         throw new GraphQLError(error.message);
       }
-      }
+    },
   },
   SR6ApplicationForm: {
     inspector: async (parent, args, context) => {
@@ -250,17 +262,73 @@ const applicationFormsResolvers = {
       }
     },
     user: async (parent) => {
-      try { 
+      try {
         const user_id = parent.user_id;
-        
+
         const [user] = await getUsers({
           id: user_id,
         });
-        return user
-      }catch (error) {
+        return user;
+      } catch (error) {
         throw new GraphQLError(error.message);
       }
+    },
+  },
+  QDsApplicationForm: {
+    inspector: async (parent, args, context) => {
+      try {
+        const inspector_id = parent.inspector_id;
+
+        if (!inspector_id) return null;
+
+        const [user] = await getUsers({
+          id: inspector_id,
+        });
+
+        return user;
+      } catch (error) {
+        throw new GraphQLError(error.message);
       }
+    },
+    user: async (parent) => {
+      try {
+        const user_id = parent.user_id;
+
+        const [user] = await getUsers({
+          id: user_id,
+        });
+        return user;
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+  },
+  SR6ApplicationForm: {
+    inspector: async (parent, args, context) => {
+      try {
+        const inspector_id = parent.inspector_id;
+
+        const [user] = await getUsers({
+          id: inspector_id,
+        });
+
+        return user;
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+    user: async (parent) => {
+      try {
+        const user_id = parent.user_id;
+
+        const [user] = await getUsers({
+          id: user_id,
+        });
+        return user;
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
   },
   QDsApplicationForm: {
     inspector: async (parent, args, context) => {
@@ -277,17 +345,71 @@ const applicationFormsResolvers = {
       }
     },
     user: async (parent) => {
-      try { 
+      try {
         const user_id = parent.user_id;
-        
+
         const [user] = await getUsers({
           id: user_id,
         });
-        return user
-      }catch (error) {
+        return user;
+      } catch (error) {
         throw new GraphQLError(error.message);
       }
+    },
+  },
+  SR6ApplicationForm: {
+    inspector: async (parent, args, context) => {
+      try {
+        const inspector_id = parent.inspector_id;
+
+        const [user] = await getUsers({
+          id: inspector_id,
+        });
+
+        return user;
+      } catch (error) {
+        throw new GraphQLError(error.message);
       }
+    },
+    user: async (parent) => {
+      try {
+        const user_id = parent.user_id;
+
+        const [user] = await getUsers({
+          id: user_id,
+        });
+        return user;
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+  },
+  QDsApplicationForm: {
+    inspector: async (parent, args, context) => {
+      try {
+        const inspector_id = parent.inspector_id;
+
+        const [user] = await getUsers({
+          id: inspector_id,
+        });
+
+        return user;
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+    user: async (parent) => {
+      try {
+        const user_id = parent.user_id;
+
+        const [user] = await getUsers({
+          id: user_id,
+        });
+        return user;
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
   },
   Mutation: {
     saveSr4Form: async (parent, args, context) => {
@@ -311,8 +433,8 @@ const applicationFormsResolvers = {
           have_adequate_land_for_production,
           have_internal_quality_program,
           source_of_seed,
-          // receipt,
-          // accept_declaration,
+          receipt,
+          accept_declaration,
           // valid_from,
           // valid_until,
           status,
@@ -327,6 +449,8 @@ const applicationFormsResolvers = {
           // processing_of_other,
         } = args.payload;
 
+        console.log("args.payload", args.payload);
+
         // construct the data object for application forms
         let data = {
           user_id,
@@ -337,10 +461,18 @@ const applicationFormsResolvers = {
           status,
           // status_comment,
           // recommendation,
+          // valid_from: valid_from || null,
+          // valid_until: valid_until || null,
+          // inspector_id: inspector_id || null,
+          status: "pending",
+          // status_comment,
+          // recommendation,
           have_adequate_storage,
           dealers_in,
-          form_type: "sr4"
+          form_type: "sr4",
         };
+
+        console.log("data", data);
 
         const save_id = await saveData({
           table: "application_forms",
@@ -349,29 +481,52 @@ const applicationFormsResolvers = {
           connection,
         });
 
-        // data object for sr4 Forms
+        // If a receipt was uploaded, save it and capture its public path
+        let savedReceiptInfo = null;
+        if (receipt) {
+          try {
+            savedReceiptInfo = await saveUpload({
+              file: receipt,
+              subdir: "form_attachments",
+            });
+          } catch (e) {
+            // If upload fails, rollback and bubble up
+            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+          }
+        }
+
+        // data object for sr4 Forms (conditionally include receipt only if provided)
         let sr4_data = {
           application_form_id: save_id,
           experienced_in,
           type,
+          // processing_of,
           have_adequate_land,
           land_size,
-          equipment,
+          // equipment,
           have_adequate_equipment,
           have_contractual_agreement,
           have_adequate_field_officers,
           have_conversant_seed_matters,
           have_adequate_land_for_production,
           have_internal_quality_program,
-          source_of_seed,
+          source_of_seed: source_of_seed || null,
           // receipt,
           // accept_declaration,
-          dealers_in_other,
+          dealers_in_other: dealers_in_other || null,
           // // seed_board_registration_number,
           // processing_of_other,
+          accept_declaration: accept_declaration || null,
+          // dealers_in_other,
+          // seed_board_registration_number,
+          // processing_of_other,
           marketing_of,
-          marketing_of_other,
+          // marketing_of_other,
         };
+
+        // Do not set receipt on sr4 table; receipt_id is kept on application_forms
+
+        console.log("sr4_data", sr4_data);
 
         const save_id2 = await saveData({
           table: "sr4_application_forms",
@@ -380,6 +535,37 @@ const applicationFormsResolvers = {
           idColumn: "application_form_id",
           connection,
         });
+
+        // Record attachment metadata in form_attachments if a receipt was uploaded
+        if (savedReceiptInfo) {
+          try {
+            // const attachment_id = await saveData({
+            //   table: "form_attachments",
+            //   data: {
+            //     application_form_id: save_id,
+            //     form_type: "sr4",
+            //     field: "receipt",
+            //     file_name: savedReceiptInfo.filename,
+            //     file_path: savedReceiptInfo.path,
+            //   },
+            //   connection,
+            // });
+
+            // Update application_forms with receipt_id
+            await saveData({
+              table: "application_forms",
+              data: { receipt_id: savedReceiptInfo.filename },
+              id: save_id,
+              connection,
+            });
+          } catch (e) {
+            // Non-fatal for the core form save; log but do not block
+            console.error(
+              "Failed to save form_attachments record or update receipt_id:",
+              e.message
+            );
+          }
+        }
 
         await connection.commit();
 
@@ -428,7 +614,6 @@ const applicationFormsResolvers = {
           type,
         } = args.payload;
 
-
         // construct the data object for application forms
         let data = {
           user_id,
@@ -446,7 +631,7 @@ const applicationFormsResolvers = {
           recommendation,
           have_adequate_storage,
           dealers_in,
-          form_type: "sr6"
+          form_type: "sr6",
         };
 
         const save_id = await saveData({
@@ -520,7 +705,6 @@ const applicationFormsResolvers = {
           examination_category,
         } = args.payload;
 
-
         // construct the data object for application forms
         let data = {
           user_id,
@@ -532,7 +716,7 @@ const applicationFormsResolvers = {
           grower_number,
           registration_number,
           status,
-          form_type: "qds"
+          form_type: "qds",
         };
 
         const save_id = await saveData({
@@ -584,7 +768,6 @@ const applicationFormsResolvers = {
         throw new GraphQLError(error.message);
       }
     },
-    
   },
 };
 
