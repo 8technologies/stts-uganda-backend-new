@@ -85,6 +85,7 @@ export const getUsers = async ({
   email,
   id,
   username,
+  role_id,
 }) => {
   try {
     let where = "WHERE users.deleted = 0";
@@ -103,6 +104,11 @@ export const getUsers = async ({
     if (username) {
       where += " AND users.username = ?";
       values.push(username);
+    }
+
+    if (role_id) {
+      where += " AND users.role_id = ?";
+      values.push(role_id);
     }
 
     let sql = `
@@ -143,11 +149,11 @@ const userResolvers = {
   },
   User: {
     sr4_applications: async (parent) => {
-     return await getForms({
+      return await getForms({
         inspector_id: parent.id,
-        form_type: "sr4"
-      })
-    }
+        form_type: "sr4",
+      });
+    },
   },
   Mutation: {
     register: async (parent, args, context) => {
@@ -301,6 +307,13 @@ const userResolvers = {
           data.created_at = new Date();
           // Assign UUID if not supplied by DB
           data.id = uuidv4();
+        } else {
+          if (password && password !== "") {
+            // if its an update and the password is provided, then update the password
+            const salt = await bcrypt.genSalt();
+            hashedPwd = await bcrypt.hash(password, salt);
+            data.password = hashedPwd;
+          }
         }
 
         // Persist
