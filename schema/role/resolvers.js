@@ -3,6 +3,7 @@ import { GraphQLError } from "graphql";
 import saveData from "../../utils/db/saveData.js";
 import { JSONResolver } from "graphql-scalars";
 import tryParseJSON from "../../helpers/tryParseJSON.js";
+import checkPermission from "../../helpers/checkPermission.js";
 
 export const getRoles = async ({ id, role_name }) => {
   try {
@@ -32,7 +33,14 @@ export const getRoles = async ({ id, role_name }) => {
 const roleResolvers = {
   JSON: JSONResolver,
   Query: {
-    roles: async (parent, args) => {
+    roles: async (parent, args, context) => {
+      const userPermissions = context.req.user.permissions;
+      checkPermission(
+        userPermissions,
+        "can_view_roles",
+        "You dont have permissions to view roles"
+      );
+
       const result = await getRoles({});
 
       const res = result.map((role) => ({
@@ -47,6 +55,13 @@ const roleResolvers = {
     saveRole: async (parent, args, context) => {
       try {
         const { id, role_name, description } = args.payload;
+
+        const userPermissions = context.req.user.permissions;
+        checkPermission(
+          userPermissions,
+          "can_create_roles",
+          "You dont have permissions to create roles"
+        );
 
         const data = {
           name: role_name,
@@ -80,6 +95,13 @@ const roleResolvers = {
       try {
         const { role_id } = args;
 
+        const userPermissions = context.req.user.permissions;
+        checkPermission(
+          userPermissions,
+          "can_delete_roles",
+          "You dont have permissions to delete roles"
+        );
+
         // await softDelete({
         //   table: "roles",
         //   id: role_id,
@@ -103,6 +125,12 @@ const roleResolvers = {
     updateRolePermissions: async (parent, args, context) => {
       try {
         const { role_id, permissions } = args.payload;
+        const userPermissions = context.req.user.permissions;
+        checkPermission(
+          userPermissions,
+          "can_update_role_permissions",
+          "You dont have permissions to update role permissions"
+        );
 
         const data = {
           permissions: JSON.stringify(permissions),
