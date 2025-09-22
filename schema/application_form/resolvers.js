@@ -7,8 +7,29 @@ import checkPermission from "../../helpers/checkPermission.js";
 import hasPermission from "../../helpers/hasPermission.js";
 import { getUsers } from "../user/resolvers.js";
 import saveUpload from "../../helpers/saveUpload.js";
+import { getRoles } from "../role/resolvers.js";
+import sendEmail from "../../utils/emails/email_server.js";
+import generateSeedBoardRegNo from "../../helpers/generateSeedBoardRegNo.js";
+import renderTemplate from "../../helpers/renderTemplate.js";
+import formatDate from "../../helpers/formatDate.js";
+import { fileURLToPath } from "url";
+import path from "path";
+import htmlToPdf from "../../helpers/htmlToPdf.js";
 
-export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
+export const getForms = async ({
+  id,
+  form_type,
+  user_id,
+  inspector_id,
+  user_assigned_forms,
+}) => {
+  console.log({
+    id,
+    form_type,
+    user_id,
+    inspector_id,
+    user_assigned_forms,
+  });
   try {
     let values = [];
     let where = "";
@@ -21,8 +42,10 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
     }
 
     if (user_id) {
-      where += " AND application_forms.user_id = ?";
-      values.push(user_id);
+      if (!user_assigned_forms) {
+        where += " AND application_forms.user_id = ?";
+        values.push(user_id);
+      }
     }
 
     if (form_type) {
@@ -33,6 +56,11 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
     if (inspector_id) {
       where += " AND application_forms.inspector_id = ?";
       values.push(inspector_id);
+    }
+
+    if (user_assigned_forms) {
+      where += " AND application_forms.inspector_id = ?";
+      values.push(user_assigned_forms);
     }
 
     if (form_type == "sr4") {
@@ -121,14 +149,23 @@ const applicationFormsResolvers = {
           "You dont have permissions to view SR4 forms"
         );
 
-        const results = await getForms({
-          user_id: hasPermission(userPermissions, "can_manage_all_forms")
-            ? null
-            : user_id,
-          form_type: "sr4",
-        });
+        // The permissions
+        const can_manage_all_forms = hasPermission(
+          userPermissions,
+          "can_manage_all_forms"
+        );
+        const can_view_specific_assigned_forms = hasPermission(
+          userPermissions,
+          "can_view_specific_assigned_forms"
+        );
 
-        console.log("results", results);
+        const results = await getForms({
+          user_id: can_manage_all_forms ? user_id : null,
+          form_type: "sr4",
+          user_assigned_forms: can_view_specific_assigned_forms
+            ? user_id
+            : false,
+        });
 
         return results;
       } catch (error) {
@@ -218,6 +255,29 @@ const applicationFormsResolvers = {
       });
 
       return results[0];
+    },
+    inspectors: async (_, args, context) => {
+      try {
+        // load the inspector role id
+        const [existingRole] = await getRoles({
+          role_name: "inspector",
+        });
+
+        if (!existingRole) {
+          // can create the role here
+          throw new GraphQLError(
+            "Inspector role not found, Please create the role and try again"
+          );
+        }
+
+        const inspectors = await getUsers({
+          role_id: existingRole.id,
+        });
+
+        return inspectors;
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
     },
   },
   SR4ApplicationForm: {
@@ -343,7 +403,18 @@ const applicationFormsResolvers = {
           // processing_of_other,
         } = args.payload;
 
-        console.log("args.payload", args.payload);
+        // if the user wants to update the form, that form should be in the pending state
+        if (id) {
+          // check the current form status
+          const [form] = await getForms({
+            id,
+          });
+
+          if (!form) throw new GraphQLError("Form not found1");
+
+          if (form.status !== "pending")
+            throw new GraphQLError("Editing this form is no longer allowed");
+        }
 
         // construct the data object for application forms
         let data = {
@@ -479,7 +550,6 @@ const applicationFormsResolvers = {
         throw new GraphQLError(error.message);
       }
     },
-
     saveSr6Form: async (parent, args, context) => {
       const connection = await db.getConnection();
       try {
@@ -507,6 +577,19 @@ const applicationFormsResolvers = {
           type,
           
         } = args.payload;
+
+        // if the user wants to update the form, that form should be in the pending state
+        if (id) {
+          // check the current form status
+          const [form] = await getForms({
+            id,
+          });
+
+          if (!form) throw new GraphQLError("Form not found1");
+
+          if (form.status !== "pending")
+            throw new GraphQLError("Editing this form is no longer allowed");
+        }
 
         // construct the data object for application forms
         let data = {
@@ -666,6 +749,19 @@ const applicationFormsResolvers = {
           examination_category,
         } = args.payload;
 
+        // if the user wants to update the form, that form should be in the pending state
+        if (id) {
+          // check the current form status
+          const [form] = await getForms({
+            id,
+          });
+
+          if (!form) throw new GraphQLError("Form not found1");
+
+          if (form.status !== "pending")
+            throw new GraphQLError("Editing this form is no longer allowed");
+        }
+
         // construct the data object for application forms
         let data = {
           user_id,
@@ -824,6 +920,403 @@ const applicationFormsResolvers = {
         };
       } catch (error) {
         console.log("error", error);
+        await connection.rollback();
+        throw new GraphQLError(error.message);
+      }
+    },
+    assignInspector: async (parent, args, context) => {
+      try {
+        const { inspector_id, form_id } = args.payload;
+        const userPermissions = context.req.user.permissions;
+
+        // check if user has permission to assign an inspector
+        checkPermission(
+          userPermissions,
+          "can_assign_inspector",
+          "You don't have permissions to assign an inspector"
+        );
+
+        // fetch inspector details
+        const [inspector] = await getUsers({
+          id: inspector_id,
+        });
+
+        // fetch the form details
+        const [formDetails] = await getForms({
+          id: form_id,
+        });
+
+        if (!inspector)
+          throw new GraphQLError("Inspector with the given id is not found!");
+
+        if (!formDetails)
+          throw new GraphQLError("Form with the provided id is not found!");
+
+        // get the user associated to that form
+        const [formOwner] = await getUsers({
+          id: formDetails.user_id,
+        });
+
+        if (!formOwner) throw new GraphQLError("Form owner not found!");
+
+        // set the new inspector
+        const data = {
+          inspector_id,
+          status: "assigned_inspector",
+        };
+
+        await saveData({
+          table: "application_forms",
+          data,
+          id: form_id,
+        });
+
+        // send a notification to the assigned inspector
+        await sendEmail({
+          from: '"STTS MAAIF" <tredumollc@gmail.com>',
+          to: inspector.email,
+          subject: "Inspector Assignement",
+          message: `Dear ${inspector.name}, You have been assigned as the inspector for ${formOwner.name}'s ${formDetails.form_type} application `,
+        });
+
+        // send another email to the form owner
+        await sendEmail({
+          from: '"STTS MAAIF" <tredumollc@gmail.com>',
+          to: formOwner.email,
+          subject: "Inspector Assignement",
+          message: `Dear ${formOwner.name}, You have been assigned to ${inspector.name} as your inspector for the ${formDetails.form_type} application that you submitted`,
+        });
+
+        return {
+          success: true,
+          message: "Inspector assigned successfully",
+        };
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+    haltForm: async (parent, args, context) => {
+      try {
+        const { form_id, reason } = args.payload;
+        const userPermissions = context.req.user.permissions;
+
+        // check if user has permission to assign an inspector
+        checkPermission(
+          userPermissions,
+          "can_halt",
+          "You don't have permissions to halt a form"
+        );
+
+        // fetch the form details
+        const [formDetails] = await getForms({
+          id: form_id,
+        });
+
+        if (!formDetails)
+          throw new GraphQLError("Form with the provided id is not found!");
+
+        // get the user associated to that form
+        const [formOwner] = await getUsers({
+          id: formDetails.user_id,
+        });
+
+        if (!formOwner) throw new GraphQLError("Form owner not found!");
+
+        // updated the form status
+        const data = {
+          status_comment: reason,
+          status: "halted",
+        };
+
+        await saveData({
+          table: "application_forms",
+          data,
+          id: form_id,
+        });
+
+        // send another email to the form owner
+        await sendEmail({
+          from: '"STTS MAAIF" <tredumollc@gmail.com>',
+          to: formOwner.email,
+          subject: `${formDetails.form_type} Form Halted`,
+          message: `Dear ${formOwner.name}, Your form haas been halted. Please go to the system to see the reason`,
+        });
+
+        return {
+          success: true,
+          message: "Form halted successfully",
+        };
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+    rejectForm: async (parent, args, context) => {
+      try {
+        const { form_id, reason } = args.payload;
+        const userPermissions = context.req.user.permissions;
+
+        // check if user has permission to assign an inspector
+        checkPermission(
+          userPermissions,
+          "can_reject",
+          "You don't have permissions to reject a form"
+        );
+
+        // fetch the form details
+        const [formDetails] = await getForms({
+          id: form_id,
+        });
+
+        if (!formDetails)
+          throw new GraphQLError("Form with the provided id is not found!");
+
+        // get the user associated to that form
+        const [formOwner] = await getUsers({
+          id: formDetails.user_id,
+        });
+
+        if (!formOwner) throw new GraphQLError("Form owner not found!");
+
+        // updated the form status
+        const data = {
+          status_comment: reason,
+          status: "rejected",
+        };
+
+        await saveData({
+          table: "application_forms",
+          data,
+          id: form_id,
+        });
+
+        // send another email to the form owner
+        await sendEmail({
+          from: '"STTS MAAIF" <tredumollc@gmail.com>',
+          to: formOwner.email,
+          subject: `${formDetails.form_type} Form Rejection`,
+          message: `Dear ${formOwner.name}, Your form haas been rejected. Please go to the system to see the reason`,
+        });
+
+        return {
+          success: true,
+          message: "Form rejected successfully",
+        };
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+    recommend: async (parent, args, context) => {
+      try {
+        const { form_id, reason } = args.payload;
+        const userPermissions = context.req.user.permissions;
+
+        // check if user has permission to assign an inspector
+        checkPermission(
+          userPermissions,
+          "can_recommend",
+          "You don't have permissions to make recommendations"
+        );
+
+        // fetch the form details
+        const [formDetails] = await getForms({
+          id: form_id,
+        });
+
+        if (!formDetails)
+          throw new GraphQLError("Form with the provided id is not found!");
+
+        // get the user associated to that form
+        const [formOwner] = await getUsers({
+          id: formDetails.user_id,
+        });
+
+        if (!formOwner) throw new GraphQLError("Form owner not found!");
+
+        // updated the form status
+        const data = {
+          inspector_comment: reason,
+          status: "recommended",
+        };
+
+        await saveData({
+          table: "application_forms",
+          data,
+          id: form_id,
+        });
+
+        // send another email to the form owner
+        await sendEmail({
+          from: '"STTS MAAIF" <tredumollc@gmail.com>',
+          to: formOwner.email,
+          subject: `${formDetails.form_type} Form Recommendation`,
+          message: `Dear ${formOwner.name}, Your form haas been recommended. The form is now submitted back to the commissioner`,
+        });
+
+        return {
+          success: true,
+          message: "Form recommended successfully",
+        };
+      } catch (error) {
+        throw new GraphQLError(error.message);
+      }
+    },
+    approveForm: async (parent, args, context) => {
+      const connection = await db.getConnection();
+      try {
+        const { form_id } = args.payload;
+        const userPermissions = context.req.user.permissions;
+        await connection.beginTransaction();
+
+        // check if user has permission to assign an inspector
+        checkPermission(
+          userPermissions,
+          "can_approve",
+          "You don't have permissions to approve a form"
+        );
+
+        // fetch the form details
+        const [formDetails] = await getForms({
+          id: form_id,
+        });
+
+        if (!formDetails)
+          throw new GraphQLError("Form with the provided id is not found!");
+
+        // get the user associated to that form
+        const [formOwner] = await getUsers({
+          id: formDetails.user_id,
+        });
+
+        if (!formOwner) throw new GraphQLError("Form owner not found!");
+
+        // default validity window
+
+        const now = new Date();
+        const validFrom = formDetails.valid_from
+          ? new Date(formDetails.valid_from)
+          : now;
+        const validUntil = formDetails.valid_until
+          ? new Date(formDetails.valid_until)
+          : new Date(
+              new Date(validFrom).setFullYear(validFrom.getFullYear() + 1)
+            );
+
+        // update the form status/validity on application_forms
+        const data = {
+          status: "approved",
+          valid_from: validFrom,
+          valid_until: validUntil,
+          status_comment: "Accepted",
+        };
+
+        await saveData({
+          table: "application_forms",
+          data,
+          id: form_id,
+          connection,
+        });
+
+        // If SR4, ensure seed_board_registration_number exists and generate certificate PDF attachment
+        let attachments = undefined;
+        if (formDetails.form_type === "sr4") {
+          // generate SR4 seed board reg number if missing
+          let seedBoardReg = formDetails.seed_board_registration_number;
+          if (!seedBoardReg) {
+            seedBoardReg = generateSeedBoardRegNo({ prefix: "MAAIF/MER" });
+            await saveData({
+              table: "sr4_application_forms",
+              data: { seed_board_registration_number: seedBoardReg },
+              id: form_id,
+              idColumn: "application_form_id",
+              connection,
+            });
+          }
+
+          // Prepare certificate HTML
+          // const __filename = fileURLToPath(import.meta.url);
+          // const __dirname = path.dirname(__filename);
+          // const templatePath = path.join(
+          //   __dirname,
+          //   "../../templates/sr4form.html"
+          // );
+
+          // const serialNo = String(Math.floor(1000 + Math.random() * 9000));
+
+          // // try to embed coat image as data URI
+          // const publicDir = path.join(__dirname, "../../public");
+          // const possibleCoatPaths = [
+          //   path.join(publicDir, "imgs", "coat.png"),
+          //   path.join(publicDir, "imgs", "coat.jpg"),
+          //   path.join(publicDir, "imgs", "coat.jpeg"),
+          //   path.join(publicDir, "logos", "coat.png"),
+          //   path.join(publicDir, "logos", "coat.jpg"),
+          //   path.join(publicDir, "logos", "coat.jpeg"),
+          // ];
+          // let coatImageSrc = "";
+          // for (const p of possibleCoatPaths) {
+          //   try {
+          //     const { default: fileToDataUri } = await import(
+          //       "../../helpers/fileToDataUri.js"
+          //     );
+          //     coatImageSrc = fileToDataUri(p);
+          //     if (coatImageSrc) break;
+          //   } catch (_) {
+          //     // ignore
+          //   }
+          // }
+
+          // const certificateHtml = renderTemplate({
+          //   templatePath,
+          //   data: {
+          //     coat_image_src: coatImageSrc,
+          //     serial_no: serialNo,
+          //     registration_number: seedBoardReg,
+          //     valid_from: formatDate(validFrom),
+          //     valid_until: formatDate(validUntil),
+          //     company_initials: formOwner.company_initials || "",
+          //     address: formOwner.address || formOwner.premises_location || "",
+          //     premises_location: formOwner.premises_location || "",
+          //     phone_number: formOwner.phone_number || "",
+          //     category: formDetails.marketing_of || "",
+          //     date: formatDate(now),
+          //   },
+          // });
+
+          // // Convert HTML to PDF buffer
+          // let pdfBuffer;
+          // try {
+          //   pdfBuffer = await htmlToPdf(certificateHtml);
+          // } catch (e) {
+          //   throw new GraphQLError(
+          //     `Failed to generate PDF: ${e.message}. Please install puppeteer (npm i puppeteer).`
+          //   );
+          // }
+
+          // attachments = [
+          //   {
+          //     filename: `sr4_certificate_${form_id}.pdf`,
+          //     content: pdfBuffer,
+          //     contentType: "application/pdf",
+          //   },
+          // ];
+        }
+
+        // send email with attachment if any
+        await sendEmail({
+          from: '"STTS MAAIF" <tredumollc@gmail.com>',
+          to: formOwner.email,
+          subject: `${formDetails.form_type} Form Approval`,
+          message: `Congragfulations!!!, Dear ${formOwner.name}, Your form has been approved.`,
+          // attachments,
+        });
+
+        await connection.commit();
+
+        return {
+          success: true,
+          message: "Form approved successfully",
+        };
+      } catch (error) {
         await connection.rollback();
         throw new GraphQLError(error.message);
       }

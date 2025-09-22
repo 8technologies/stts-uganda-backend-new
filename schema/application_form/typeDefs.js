@@ -30,6 +30,7 @@ const applicationFormsTypeDefs = `#graphql
         status_comment: String
         recommendation: String
         inspector_id: String
+        inspector_comment: String
         dealers_in_other: String
         marketing_of_other: String
         have_adequate_storage: Boolean
@@ -117,7 +118,7 @@ const applicationFormsTypeDefs = `#graphql
     
     enum StatusType {
        pending
-       accepted
+       approved
        rejected
        halted
        assigned_inspector
@@ -137,12 +138,33 @@ const applicationFormsTypeDefs = `#graphql
         sr6_application_details(id: ID!): SR6ApplicationForm
         qds_applications:[QDsApplicationForm!]!
         qds_application_details(id: ID!): QDsApplicationForm
+        inspectors: [User!]
     }
 
     type Mutation{
         saveSr4Form(payload: SR4ApplicationFormInput!) : Sr4ResponseMessage
         saveSr6Form(payload: SR6ApplicationFormInput!) : Sr6ResponseMessage
         saveQdsForm(payload: QDSApplicationFormInput!) : QdsResponseMessage
+        assignInspector(payload: AsignInspectorInput!) : ResponseMessage
+        haltForm(payload: HaltPayload!): ResponseMessage 
+        rejectForm(payload: HaltPayload!): ResponseMessage 
+        approveForm(payload: ApprovePayload!): ResponseMessage
+        recommend(payload: HaltPayload!): ResponseMessage 
+    }
+
+    input ApprovePayload {
+        form_id: String!
+        form_type: FormType!
+    }
+
+    input HaltPayload {
+        form_id: String!
+        reason: String!
+    }
+
+    input AsignInspectorInput {
+        inspector_id: String!
+        form_id: String!
     }
 
 
