@@ -50,8 +50,8 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
                         sr4_application_forms.have_conversant_seed_matters, 
                         sr4_application_forms.have_adequate_land_for_production, 
                         sr4_application_forms.have_internal_quality_program, 
-                        sr4_application_forms.source_of_seed, 
-                        sr4_application_forms.receipt, 
+                        sr4_application_forms.source_of_seed,  
+                        sr4_application_forms.receipt_id, 
                         sr4_application_forms.accept_declaration, 
                         sr4_application_forms.dealers_in_other, 
                         sr4_application_forms.marketing_of_other, 
@@ -67,7 +67,8 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
                             sr6_application_forms.have_adequate_labor, 
                             sr6_application_forms.aware_of_minimum_standards,
                             sr6_application_forms.seed_grower_in_past, 
-                            sr6_application_forms.type, 
+                            sr6_application_forms.type,
+                            sr6_application_forms.other_documents,
                             `;
     }
 
@@ -82,6 +83,7 @@ export const getForms = async ({ id, form_type, user_id, inspector_id }) => {
                             qds_application_forms.have_adequate_storage_facility, 
                             qds_application_forms.is_not_used, 
                             qds_application_forms.examination_category, 
+                            qds_application_forms.recommendation_id, 
                             `;
     }
 
@@ -303,114 +305,6 @@ const applicationFormsResolvers = {
       }
     },
   },
-  SR6ApplicationForm: {
-    inspector: async (parent, args, context) => {
-      try {
-        const inspector_id = parent.inspector_id;
-
-        const [user] = await getUsers({
-          id: inspector_id,
-        });
-
-        return user;
-      } catch (error) {
-        throw new GraphQLError(error.message);
-      }
-    },
-    user: async (parent) => {
-      try {
-        const user_id = parent.user_id;
-
-        const [user] = await getUsers({
-          id: user_id,
-        });
-        return user;
-      } catch (error) {
-        throw new GraphQLError(error.message);
-      }
-    },
-  },
-  QDsApplicationForm: {
-    inspector: async (parent, args, context) => {
-      try {
-        const inspector_id = parent.inspector_id;
-
-        const [user] = await getUsers({
-          id: inspector_id,
-        });
-
-        return user;
-      } catch (error) {
-        throw new GraphQLError(error.message);
-      }
-    },
-    user: async (parent) => {
-      try {
-        const user_id = parent.user_id;
-
-        const [user] = await getUsers({
-          id: user_id,
-        });
-        return user;
-      } catch (error) {
-        throw new GraphQLError(error.message);
-      }
-    },
-  },
-  SR6ApplicationForm: {
-    inspector: async (parent, args, context) => {
-      try {
-        const inspector_id = parent.inspector_id;
-
-        const [user] = await getUsers({
-          id: inspector_id,
-        });
-
-        return user;
-      } catch (error) {
-        throw new GraphQLError(error.message);
-      }
-    },
-    user: async (parent) => {
-      try {
-        const user_id = parent.user_id;
-
-        const [user] = await getUsers({
-          id: user_id,
-        });
-        return user;
-      } catch (error) {
-        throw new GraphQLError(error.message);
-      }
-    },
-  },
-  QDsApplicationForm: {
-    inspector: async (parent, args, context) => {
-      try {
-        const inspector_id = parent.inspector_id;
-
-        const [user] = await getUsers({
-          id: inspector_id,
-        });
-
-        return user;
-      } catch (error) {
-        throw new GraphQLError(error.message);
-      }
-    },
-    user: async (parent) => {
-      try {
-        const user_id = parent.user_id;
-
-        const [user] = await getUsers({
-          id: user_id,
-        });
-        return user;
-      } catch (error) {
-        throw new GraphQLError(error.message);
-      }
-    },
-  },
   Mutation: {
     saveSr4Form: async (parent, args, context) => {
       const connection = await db.getConnection();
@@ -602,35 +496,32 @@ const applicationFormsResolvers = {
           aware_of_minimum_standards,
           signature_of_applicant,
           grower_number,
-          inspector_id,
-          registration_number,
-          valid_from,
-          valid_until,
           status,
+          receipt,
+          other_documents,
+          inspector_id,
           status_comment,
           recommendation,
           have_adequate_storage,
           seed_grower_in_past,
           type,
+          
         } = args.payload;
 
         // construct the data object for application forms
         let data = {
           user_id,
-          previous_grower_number,
           years_of_experience,
-          signature_of_applicant,
-          registration_number,
-          valid_from,
-          valid_until,
-          inspector_id,
+          dealers_in,
+          previous_grower_number,
           cropping_history,
+          signature_of_applicant,
           grower_number,
           status,
+          inspector_id,
           status_comment,
           recommendation,
           have_adequate_storage,
-          dealers_in,
           form_type: "sr6",
         };
 
@@ -640,6 +531,21 @@ const applicationFormsResolvers = {
           id,
           connection,
         });
+
+        // If a receipt was uploaded, save it and capture its public path
+        let savedReceiptInfo = null;
+        if (receipt) {
+          try {
+            savedReceiptInfo = await saveUpload({
+              file: receipt,
+              subdir: "form_attachments",
+            });
+          } catch (e) {
+            // If upload fails, rollback and bubble up
+            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+          }
+        }
+
 
         // data object for sr4 Forms
         let sr6_data = {
@@ -658,6 +564,59 @@ const applicationFormsResolvers = {
           idColumn: "application_form_id",
           connection,
         });
+
+        let savedDocuments = null;
+        if (other_documents) {
+          try {
+            savedDocuments = await saveUpload({
+              file: other_documents,
+              subdir: "form_attachments",
+            });
+          } catch (e) {
+            // If upload fails, rollback and bubble up
+            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+          }
+        }
+
+        // Record attachment metadata in form_attachments if a receipt was uploaded
+        if (savedReceiptInfo) {
+          try {
+
+            // Update application_forms with receipt_id
+            await saveData({
+              table: "application_forms",
+              data: { receipt_id: savedReceiptInfo.filename },
+              id: save_id,
+              connection,
+            });
+          } catch (e) {
+            // Non-fatal for the core form save; log but do not block
+            console.error(
+              "Failed to save form_attachments record or update receipt_id:",
+              e.message
+            );
+          }
+        }
+
+        // Record attachment metadata in form_attachments if a receipt was uploaded
+        if (savedDocuments) {
+          try {
+
+            // Update application_forms with receipt_id
+            await saveData({
+              table: "sr6_application_forms",
+              data: { other_documents: savedDocuments.filename },
+              id: save_id2,
+              connection,
+            });
+          } catch (e) {
+            // Non-fatal for the core form save; log but do not block
+            console.error(
+              "Failed to save form_attachments record or update receipt_id:",
+              e.message
+            );
+          }
+        }
 
         await connection.commit();
 
@@ -686,6 +645,8 @@ const applicationFormsResolvers = {
         const {
           id,
           certification,
+          receipt,
+          recommendation_id,
           years_of_experience,
           dealers_in,
           previous_grower_number,
@@ -726,10 +687,24 @@ const applicationFormsResolvers = {
           connection,
         });
 
+        // If a receipt was uploaded, save it and capture its public path
+        let savedReceiptInfo2 = null;
+        if (receipt) {
+          try {
+            savedReceiptInfo2 = await saveUpload({
+              file: receipt,
+              subdir: "form_attachments",
+            });
+          } catch (e) {
+            // If upload fails, rollback and bubble up
+            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+          }
+        }
+
+
         // data object for qds Forms
         let qds_data = {
           application_form_id: save_id,
-          certification,
           have_adequate_isolation,
           have_adequate_labor,
           aware_of_minimum_standards,
@@ -748,6 +723,91 @@ const applicationFormsResolvers = {
           idColumn: "application_form_id",
           connection,
         });
+
+        let certificationDoc = null;
+        if (certification) {
+          try {
+            certificationDoc = await saveUpload({
+              file: certification,
+              subdir: "form_attachments",
+            });
+          } catch (e) {
+            // If upload fails, rollback and bubble up
+            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+          }
+        }
+        let recommendationDoc = null;
+        if (certification) {
+          try {
+            recommendationDoc = await saveUpload({
+              file: recommendation_id,
+              subdir: "form_attachments",
+            });
+          } catch (e) {
+            // If upload fails, rollback and bubble up
+            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+          }
+        }
+
+        // Record attachment metadata in form_attachments if a receipt was uploaded
+        if (savedReceiptInfo2) {
+          try {
+
+            // Update application_forms with receipt_id
+            await saveData({
+              table: "application_forms",
+              data: { receipt_id: savedReceiptInfo.filename },
+              id: save_id,
+              connection,
+            });
+          } catch (e) {
+            // Non-fatal for the core form save; log but do not block
+            console.error(
+              "Failed to save form_attachments record or update receipt_id:",
+              e.message
+            );
+          }
+        }
+
+        // Record attachment metadata in form_attachments if a receipt was uploaded
+        if (certificationDoc) {
+          try {
+
+            // Update application_forms with receipt_id
+            await saveData({
+              table: "qds_application_forms",
+              data: { certification: certificationDoc.filename },
+              id: save_id2,
+              connection,
+            });
+          } catch (e) {
+            // Non-fatal for the core form save; log but do not block
+            console.error(
+              "Failed to save form_attachments record or update receipt_id:",
+              e.message
+            );
+          }
+        }
+
+        // Record attachment metadata in form_attachments if a receipt was uploaded
+        if (recommendationDoc) {
+          try {
+
+            // Update application_forms with receipt_id
+            await saveData({
+              table: "qds_application_forms",
+              data: { recommendation_id: recommendationDoc.filename },
+              id: save_id2,
+              connection,
+            });
+          } catch (e) {
+            // Non-fatal for the core form save; log but do not block
+            console.error(
+              "Failed to save form_attachments record or update receipt_id:",
+              e.message
+            );
+          }
+        }
 
         await connection.commit();
 

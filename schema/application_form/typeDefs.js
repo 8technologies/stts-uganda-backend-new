@@ -64,6 +64,8 @@ const applicationFormsTypeDefs = `#graphql
         have_adequate_storage: Boolean
         seed_grower_in_past: Boolean
         type: Sr6Type
+        receipt_id: String
+        other_documents: String
         inspector: User
         user: User
     }
@@ -72,8 +74,11 @@ const applicationFormsTypeDefs = `#graphql
         id: ID
         user_id: String
         farm_location: String
-        recommendation: String
+        receipt: String
         certification: String
+        recommendation_id: String
+        
+        recommendation: String
         years_of_experience: String
         dealers_in: String
         previous_grower_number: String
@@ -191,11 +196,15 @@ const applicationFormsTypeDefs = `#graphql
         have_adequate_storage: Boolean
         seed_grower_in_past: Boolean
         type: String
+        receipt: Upload
+        other_documents: Upload
     }
 
     input QDSApplicationFormInput {
         id: ID
-        certification: String
+        receipt_id: Upload
+        certification: Upload
+        recommendation_id: Upload
         years_of_experience: String
         dealers_in: String
         previous_grower_number: String
