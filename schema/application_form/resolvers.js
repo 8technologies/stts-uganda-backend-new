@@ -15,6 +15,7 @@ import formatDate from "../../helpers/formatDate.js";
 import { fileURLToPath } from "url";
 import path from "path";
 import htmlToPdf from "../../helpers/htmlToPdf.js";
+import { Console } from "console";
 
 export const getForms = async ({
   id = null,
@@ -326,11 +327,16 @@ const applicationFormsResolvers = {
     inspector: async (parent, args, context) => {
       try {
         const inspector_id = parent.inspector_id;
+        
+
+        if (!inspector_id) return null
 
         if (!inspector_id) return null;
         const [user] = await getUsers({
           id: inspector_id,
         });
+
+ 
 
         return user;
       } catch (error) {
@@ -614,7 +620,7 @@ const applicationFormsResolvers = {
           cropping_history,
           signature_of_applicant,
           grower_number,
-          status: id ? status : "pending",
+          status: id ? status : "pending" : "pending",
           inspector_id,
           status_comment,
           recommendation,
@@ -760,6 +766,8 @@ const applicationFormsResolvers = {
           examination_category,
         } = args.payload;
 
+        console.log(args.payload);
+
         // if the user wants to update the form, that form should be in the pending state
         if (id) {
           // check the current form status
@@ -783,7 +791,7 @@ const applicationFormsResolvers = {
           signature_of_applicant,
           grower_number,
           registration_number,
-          status,
+          status : "pending",
           form_type: "qds",
         };
 
@@ -822,7 +830,7 @@ const applicationFormsResolvers = {
           examination_category,
         };
 
-        const save_id2 = await saveData({
+        const save_id3 = await saveData({
           table: "qds_application_forms",
           data: qds_data,
           id,
@@ -839,11 +847,12 @@ const applicationFormsResolvers = {
             });
           } catch (e) {
             // If upload fails, rollback and bubble up
-            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+            throw new GraphQLError(`Certification upload failed: ${e.message}`);
           }
         }
+
         let recommendationDoc = null;
-        if (certification) {
+        if (recommendation_id) {
           try {
             recommendationDoc = await saveUpload({
               file: recommendation_id,
@@ -851,7 +860,7 @@ const applicationFormsResolvers = {
             });
           } catch (e) {
             // If upload fails, rollback and bubble up
-            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+            throw new GraphQLError(`Recommendation upload failed: ${e.message}`);
           }
         }
 
@@ -861,7 +870,7 @@ const applicationFormsResolvers = {
             // Update application_forms with receipt_id
             await saveData({
               table: "application_forms",
-              data: { receipt_id: savedReceiptInfo.filename },
+              data: { receipt_id: savedReceiptInfo2.filename },
               id: save_id,
               connection,
             });
@@ -881,13 +890,13 @@ const applicationFormsResolvers = {
             await saveData({
               table: "qds_application_forms",
               data: { certification: certificationDoc.filename },
-              id: save_id2,
+              id: save_id3,
               connection,
             });
           } catch (e) {
             // Non-fatal for the core form save; log but do not block
             console.error(
-              "Failed to save form_attachments record or update receipt_id:",
+              "Failed to save form_attachments record or update certification:",
               e.message
             );
           }
@@ -900,17 +909,17 @@ const applicationFormsResolvers = {
             await saveData({
               table: "qds_application_forms",
               data: { recommendation_id: recommendationDoc.filename },
-              id: save_id2,
+              id: save_id3,
               connection,
             });
           } catch (e) {
             // Non-fatal for the core form save; log but do not block
             console.error(
-              "Failed to save form_attachments record or update receipt_id:",
+              "Failed to save form_attachments record or update recommendation_id:",
               e.message
             );
           }
-        }
+        } 
 
         await connection.commit();
 
@@ -1232,7 +1241,7 @@ const applicationFormsResolvers = {
               table: "application_forms",
               data: { seed_board_registration_number: seedBoardReg },
               id: form_id,
-              // idColumn: "",
+              idColumn: "application_form_id",
               connection,
             });
           }
@@ -1304,6 +1313,116 @@ const applicationFormsResolvers = {
           //     contentType: "application/pdf",
           //   },
           // ];
+        }
+
+        if (formDetails.form_type === "sr6") {
+          // generate SR4 seed board reg number if missing
+          let seedBoardReg = formDetails.seed_board_registration_number;
+          let growerReg = formDetails.grower_number;
+          if (!seedBoardReg) {
+            if(formDetails.type == 'seed_breeder'){
+              seedBoardReg = generateSeedBoardRegNo({ prefix: "MAAIF/SB" });
+              growerReg = generateSeedBoardRegNo({ prefix: "NSCS/SB" });
+            }else{
+              seedBoardReg = generateSeedBoardRegNo({ prefix: "MAAIF/PB" });
+              growerReg = generateSeedBoardRegNo({ prefix: "NSCS/PB" });
+            }
+            await saveData({
+              table: "application_forms",
+              data: { seed_board_registration_number: seedBoardReg, grower_number: growerReg },
+              id: form_id,
+              // idColumn: "application_form_id",
+              connection,
+            });
+          }
+
+          // Prepare certificate HTML
+          // const __filename = fileURLToPath(import.meta.url);
+          // const __dirname = path.dirname(__filename);
+          // const templatePath = path.join(
+          //   __dirname,
+          //   "../../templates/sr4form.html"
+          // );
+
+          // const serialNo = String(Math.floor(1000 + Math.random() * 9000));
+
+          // // try to embed coat image as data URI
+          // const publicDir = path.join(__dirname, "../../public");
+          // const possibleCoatPaths = [
+          //   path.join(publicDir, "imgs", "coat.png"),
+          //   path.join(publicDir, "imgs", "coat.jpg"),
+          //   path.join(publicDir, "imgs", "coat.jpeg"),
+          //   path.join(publicDir, "logos", "coat.png"),
+          //   path.join(publicDir, "logos", "coat.jpg"),
+          //   path.join(publicDir, "logos", "coat.jpeg"),
+          // ];
+          // let coatImageSrc = "";
+          // for (const p of possibleCoatPaths) {
+          //   try {
+          //     const { default: fileToDataUri } = await import(
+          //       "../../helpers/fileToDataUri.js"
+          //     );
+          //     coatImageSrc = fileToDataUri(p);
+          //     if (coatImageSrc) break;
+          //   } catch (_) {
+          //     // ignore
+          //   }
+          // }
+
+          // const certificateHtml = renderTemplate({
+          //   templatePath,
+          //   data: {
+          //     coat_image_src: coatImageSrc,
+          //     serial_no: serialNo,
+          //     registration_number: seedBoardReg,
+          //     valid_from: formatDate(validFrom),
+          //     valid_until: formatDate(validUntil),
+          //     company_initials: formOwner.company_initials || "",
+          //     address: formOwner.address || formOwner.premises_location || "",
+          //     premises_location: formOwner.premises_location || "",
+          //     phone_number: formOwner.phone_number || "",
+          //     category: formDetails.marketing_of || "",
+          //     date: formatDate(now),
+          //   },
+          // });
+
+          // // Convert HTML to PDF buffer
+          // let pdfBuffer;
+          // try {
+          //   pdfBuffer = await htmlToPdf(certificateHtml);
+          // } catch (e) {
+          //   throw new GraphQLError(
+          //     `Failed to generate PDF: ${e.message}. Please install puppeteer (npm i puppeteer).`
+          //   );
+          // }
+
+          // attachments = [
+          //   {
+          //     filename: `sr4_certificate_${form_id}.pdf`,
+          //     content: pdfBuffer,
+          //     contentType: "application/pdf",
+          //   },
+          // ];
+        }
+
+        if (formDetails.form_type === "qds") {
+          // generate SR4 seed board reg number if missing
+          let seedBoardReg = formDetails.seed_board_registration_number;
+          let growerReg = formDetails.grower_number;
+          if (!seedBoardReg) {
+            
+            seedBoardReg = generateSeedBoardRegNo({ prefix: "MAAIF/QDS" });
+            growerReg = generateSeedBoardRegNo({ prefix: "NSCS/QDS" });
+            
+            await saveData({
+              table: "application_forms",
+              data: { seed_board_registration_number: seedBoardReg, grower_number: growerReg },
+              id: form_id,
+              // idColumn: "application_form_id",
+              connection,
+            });
+          }
+
         }
 
         // send email with attachment if any

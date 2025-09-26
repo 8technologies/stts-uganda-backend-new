@@ -87,6 +87,7 @@ export const getUsers = async ({
   username,
   role_id,
 }) => {
+
   try {
     let where = "WHERE users.deleted = 0";
     let values = [];
@@ -123,6 +124,7 @@ export const getUsers = async ({
     values.push(limit, offset);
 
     const [results] = await db.execute(sql, values);
+
 
     return results;
   } catch (error) {

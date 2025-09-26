@@ -55,7 +55,7 @@ const applicationFormsTypeDefs = `#graphql
         aware_of_minimum_standards: Boolean
         signature_of_applicant: String
         grower_number: String
-        registration_number: String
+        seed_board_registration_number: String
         valid_from: Date
         valid_until: Date
         status: StatusType
@@ -65,6 +65,7 @@ const applicationFormsTypeDefs = `#graphql
         have_adequate_storage: Boolean
         seed_grower_in_past: Boolean
         type: Sr6Type
+        form_type: String!
         receipt_id: String
         other_documents: String
         inspector: User
@@ -77,10 +78,10 @@ const applicationFormsTypeDefs = `#graphql
         id: ID
         user_id: String
         farm_location: String
-        receipt: String
+        receipt_id: String
         certification: String
         recommendation_id: String
-        
+        form_type: String!
         recommendation: String
         years_of_experience: String
         dealers_in: String
@@ -229,7 +230,7 @@ const applicationFormsTypeDefs = `#graphql
 
     input QDSApplicationFormInput {
         id: ID
-        receipt_id: Upload
+        receipt: Upload
         certification: Upload
         recommendation_id: Upload
         years_of_experience: String
