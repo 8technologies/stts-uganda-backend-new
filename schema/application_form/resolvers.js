@@ -18,10 +18,10 @@ import htmlToPdf from "../../helpers/htmlToPdf.js";
 import { Console } from "console";
 
 export const getForms = async ({
-  id,
+  id = null,
   form_type,
   user_id,
-  inspector_id,
+  inspector_id = null,
   user_assigned_forms,
 }) => {
   console.log({
@@ -160,7 +160,7 @@ const applicationFormsResolvers = {
         );
 
         const results = await getForms({
-          user_id: can_manage_all_forms ? user_id : null,
+          user_id: !can_manage_all_forms ? user_id : null,
           form_type: "sr4",
           user_assigned_forms: can_view_specific_assigned_forms
             ? user_id
@@ -580,7 +580,6 @@ const applicationFormsResolvers = {
           have_adequate_storage,
           seed_grower_in_past,
           type,
-          
         } = args.payload;
 
         // if the user wants to update the form, that form should be in the pending state
@@ -634,7 +633,6 @@ const applicationFormsResolvers = {
           }
         }
 
-
         // data object for sr4 Forms
         let sr6_data = {
           application_form_id: save_id,
@@ -669,7 +667,6 @@ const applicationFormsResolvers = {
         // Record attachment metadata in form_attachments if a receipt was uploaded
         if (savedReceiptInfo) {
           try {
-
             // Update application_forms with receipt_id
             await saveData({
               table: "application_forms",
@@ -689,7 +686,6 @@ const applicationFormsResolvers = {
         // Record attachment metadata in form_attachments if a receipt was uploaded
         if (savedDocuments) {
           try {
-
             // Update application_forms with receipt_id
             await saveData({
               table: "sr6_application_forms",
@@ -804,7 +800,6 @@ const applicationFormsResolvers = {
           }
         }
 
-
         // data object for qds Forms
         let qds_data = {
           application_form_id: save_id,
@@ -856,7 +851,6 @@ const applicationFormsResolvers = {
         // Record attachment metadata in form_attachments if a receipt was uploaded
         if (savedReceiptInfo2) {
           try {
-
             // Update application_forms with receipt_id
             await saveData({
               table: "application_forms",
@@ -876,7 +870,6 @@ const applicationFormsResolvers = {
         // Record attachment metadata in form_attachments if a receipt was uploaded
         if (certificationDoc) {
           try {
-
             // Update application_forms with receipt_id
             await saveData({
               table: "qds_application_forms",
@@ -896,7 +889,6 @@ const applicationFormsResolvers = {
         // Record attachment metadata in form_attachments if a receipt was uploaded
         if (recommendationDoc) {
           try {
-
             // Update application_forms with receipt_id
             await saveData({
               table: "qds_application_forms",
