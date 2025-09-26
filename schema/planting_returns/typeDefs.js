@@ -1,6 +1,7 @@
 const plantingReturnsTypeDefs = `#graphql
     scalar Date
     scalar JSON
+    
     type Role {
         id: ID!
         name: String!,

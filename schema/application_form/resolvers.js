@@ -87,6 +87,7 @@ export const getForms = async ({
                         sr4_application_forms.type,
                         `;
     }
+
     if (form_type == "sr6") {
       extra_join +=
         " LEFT JOIN sr6_application_forms ON sr6_application_forms.application_form_id = application_forms.id";
@@ -153,6 +154,7 @@ const applicationFormsResolvers = {
           userPermissions,
           "can_manage_all_forms"
         );
+
         const can_view_specific_assigned_forms = hasPermission(
           userPermissions,
           "can_view_specific_assigned_forms"
@@ -198,12 +200,24 @@ const applicationFormsResolvers = {
         "You dont have permissions to view SR6 forms"
       );
 
-      return await getForms({
-        user_id: hasPermission(userPermissions, "can_manage_all_forms")
-          ? null
-          : user_id,
+      // The permissions
+      const can_manage_all_forms = hasPermission(
+        userPermissions,
+        "can_manage_all_forms"
+      );
+
+      const can_view_specific_assigned_forms = hasPermission(
+        userPermissions,
+        "can_view_specific_assigned_forms"
+      );
+
+      const results = await getForms({
+        user_id: !can_manage_all_forms ? user_id : null,
         form_type: "sr6",
+        user_assigned_forms: can_view_specific_assigned_forms ? user_id : false,
       });
+
+      return results;
     },
     sr6_application_details: async (_, args, context) => {
       const { id } = args;
@@ -313,6 +327,7 @@ const applicationFormsResolvers = {
       try {
         const inspector_id = parent.inspector_id;
 
+        if (!inspector_id) return null;
         const [user] = await getUsers({
           id: inspector_id,
         });
@@ -576,6 +591,8 @@ const applicationFormsResolvers = {
           type,
         } = args.payload;
 
+        console.log("args.payload", args.payload);
+
         // if the user wants to update the form, that form should be in the pending state
         if (id) {
           // check the current form status
@@ -588,7 +605,6 @@ const applicationFormsResolvers = {
           if (form.status !== "pending")
             throw new GraphQLError("Editing this form is no longer allowed");
         }
-
         // construct the data object for application forms
         let data = {
           user_id,
@@ -598,7 +614,7 @@ const applicationFormsResolvers = {
           cropping_history,
           signature_of_applicant,
           grower_number,
-          status,
+          status: id ? status : "pending",
           inspector_id,
           status_comment,
           recommendation,
@@ -1207,18 +1223,16 @@ const applicationFormsResolvers = {
           connection,
         });
 
-        // If SR4, ensure seed_board_registration_number exists and generate certificate PDF attachment
-        let attachments = undefined;
         if (formDetails.form_type === "sr4") {
           // generate SR4 seed board reg number if missing
           let seedBoardReg = formDetails.seed_board_registration_number;
           if (!seedBoardReg) {
             seedBoardReg = generateSeedBoardRegNo({ prefix: "MAAIF/MER" });
             await saveData({
-              table: "sr4_application_forms",
+              table: "application_forms",
               data: { seed_board_registration_number: seedBoardReg },
               id: form_id,
-              idColumn: "application_form_id",
+              // idColumn: "",
               connection,
             });
           }
