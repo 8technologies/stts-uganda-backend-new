@@ -17,8 +17,19 @@ const app = express();
 // enabling our servers to shut down gracefully.
 
 app.use(express.static("public"));
-// app.use(cors({ origin: allowedOrigins }));
+app.use(cors({ origin: "*" }));
 const httpServer = http.createServer(app);
+
+// cointries api
+app.get("/countries", async (req, res) => {
+  try {
+    const response = await fetch("https://www.apicountries.com/countries");
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch data" });
+  }
+});
 
 // Same ApolloServer initialization as before, plus the drain plugin
 // for our httpServer.
