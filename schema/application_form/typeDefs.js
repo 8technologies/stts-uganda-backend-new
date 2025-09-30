@@ -56,10 +56,12 @@ const applicationFormsTypeDefs = `#graphql
         signature_of_applicant: String
         grower_number: String
         seed_board_registration_number: String
+        registration_number: String
         valid_from: Date
         valid_until: Date
         status: StatusType
         inspector_id: String
+        inspector_comment: String
         status_comment: String
         recommendation: String
         have_adequate_storage: Boolean
@@ -78,7 +80,6 @@ const applicationFormsTypeDefs = `#graphql
         id: ID
         user_id: String
         farm_location: String
-        receipt_id: String
         certification: String
         recommendation_id: String
         form_type: String!

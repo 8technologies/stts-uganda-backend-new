@@ -49,6 +49,9 @@ const loginUser = async ({ username, password, user_id, context }) => {
     const tokenData = {
       id: user.id,
       email: user?.email || null,
+      is_grower: user?.is_grower,
+      is_merchant: user?.is_merchant,
+      is_qds_producer: user?.is_qds_producer,
       permissions: tryParseJSON(tryParseJSON(user.permissions)),
     };
 
@@ -87,7 +90,6 @@ export const getUsers = async ({
   username,
   role_id,
 }) => {
-
   try {
     let where = "WHERE users.deleted = 0";
     let values = [];
@@ -125,10 +127,25 @@ export const getUsers = async ({
 
     const [results] = await db.execute(sql, values);
 
-
     return results;
   } catch (error) {
     throw new GraphQLError(error.message);
+  }
+};
+
+// Light user/crop variety lookups
+const fetchUserById = async (id) => {
+  if (!id) return null;
+  try {
+    const [rows] = await db.execute(
+      "SELECT id, name, email, image FROM users WHERE id = ? LIMIT 1",
+      [id]
+    );
+    if (!rows.length) return null;
+    const u = rows[0];
+    return { id: String(u.id), name: u.name, email: u.email, image: u.image };
+  } catch (e) {
+    return null;
   }
 };
 

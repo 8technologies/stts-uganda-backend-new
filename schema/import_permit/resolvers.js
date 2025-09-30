@@ -239,10 +239,7 @@ const importPermitsResolvers = {
     createImportPermit: async (parent, args, context) => {
       const user_id = context.req.user.id;
       const userPermissions = context.req.user.permissions;
-      console.log(
-        "kjsdskjds",
-        hasPermission(userPermissions, "can_create_permits")
-      );
+
       if (hasPermission(userPermissions, "can_create_permits")) {
         checkPermission(
           userPermissions,

@@ -327,16 +327,13 @@ const applicationFormsResolvers = {
     inspector: async (parent, args, context) => {
       try {
         const inspector_id = parent.inspector_id;
-        
 
-        if (!inspector_id) return null
+        if (!inspector_id) return null;
 
         if (!inspector_id) return null;
         const [user] = await getUsers({
           id: inspector_id,
         });
-
- 
 
         return user;
       } catch (error) {
@@ -597,8 +594,6 @@ const applicationFormsResolvers = {
           type,
         } = args.payload;
 
-        console.log("args.payload", args.payload);
-
         // if the user wants to update the form, that form should be in the pending state
         if (id) {
           // check the current form status
@@ -620,7 +615,7 @@ const applicationFormsResolvers = {
           cropping_history,
           signature_of_applicant,
           grower_number,
-          status: id ? status : "pending" : "pending",
+          status: id ? status : "pending",
           inspector_id,
           status_comment,
           recommendation,
@@ -791,7 +786,7 @@ const applicationFormsResolvers = {
           signature_of_applicant,
           grower_number,
           registration_number,
-          status : "pending",
+          status: "pending",
           form_type: "qds",
         };
 
@@ -860,7 +855,9 @@ const applicationFormsResolvers = {
             });
           } catch (e) {
             // If upload fails, rollback and bubble up
-            throw new GraphQLError(`Recommendation upload failed: ${e.message}`);
+            throw new GraphQLError(
+              `Recommendation upload failed: ${e.message}`
+            );
           }
         }
 
@@ -919,7 +916,7 @@ const applicationFormsResolvers = {
               e.message
             );
           }
-        } 
+        }
 
         await connection.commit();
 
@@ -991,7 +988,7 @@ const applicationFormsResolvers = {
         await sendEmail({
           from: '"STTS MAAIF" <tredumollc@gmail.com>',
           to: inspector.email,
-          subject: "Inspector Assignement",
+          subject: "Inspector Assignment",
           message: `Dear ${inspector.name}, You have been assigned as the inspector for ${formOwner.name}'s ${formDetails.form_type} application `,
         });
 
@@ -999,7 +996,7 @@ const applicationFormsResolvers = {
         await sendEmail({
           from: '"STTS MAAIF" <tredumollc@gmail.com>',
           to: formOwner.email,
-          subject: "Inspector Assignement",
+          subject: "Inspector Assignment",
           message: `Dear ${formOwner.name}, You have been assigned to ${inspector.name} as your inspector for the ${formDetails.form_type} application that you submitted`,
         });
 
@@ -1232,6 +1229,10 @@ const applicationFormsResolvers = {
           connection,
         });
 
+        let is_grower = false;
+        let is_merchant = false;
+        let is_qds_producer = false;
+
         if (formDetails.form_type === "sr4") {
           // generate SR4 seed board reg number if missing
           let seedBoardReg = formDetails.seed_board_registration_number;
@@ -1245,6 +1246,8 @@ const applicationFormsResolvers = {
               connection,
             });
           }
+
+          is_merchant = true;
 
           // Prepare certificate HTML
           // const __filename = fileURLToPath(import.meta.url);
@@ -1320,21 +1323,26 @@ const applicationFormsResolvers = {
           let seedBoardReg = formDetails.seed_board_registration_number;
           let growerReg = formDetails.grower_number;
           if (!seedBoardReg) {
-            if(formDetails.type == 'seed_breeder'){
+            if (formDetails.type == "seed_breeder") {
               seedBoardReg = generateSeedBoardRegNo({ prefix: "MAAIF/SB" });
               growerReg = generateSeedBoardRegNo({ prefix: "NSCS/SB" });
-            }else{
+            } else {
               seedBoardReg = generateSeedBoardRegNo({ prefix: "MAAIF/PB" });
               growerReg = generateSeedBoardRegNo({ prefix: "NSCS/PB" });
             }
             await saveData({
               table: "application_forms",
-              data: { seed_board_registration_number: seedBoardReg, grower_number: growerReg },
+              data: {
+                seed_board_registration_number: seedBoardReg,
+                grower_number: growerReg,
+              },
               id: form_id,
               // idColumn: "application_form_id",
               connection,
             });
           }
+
+          is_grower = true;
 
           // Prepare certificate HTML
           // const __filename = fileURLToPath(import.meta.url);
@@ -1410,20 +1418,36 @@ const applicationFormsResolvers = {
           let seedBoardReg = formDetails.seed_board_registration_number;
           let growerReg = formDetails.grower_number;
           if (!seedBoardReg) {
-            
             seedBoardReg = generateSeedBoardRegNo({ prefix: "MAAIF/QDS" });
             growerReg = generateSeedBoardRegNo({ prefix: "NSCS/QDS" });
-            
+
             await saveData({
               table: "application_forms",
-              data: { seed_board_registration_number: seedBoardReg, grower_number: growerReg },
+              data: {
+                seed_board_registration_number: seedBoardReg,
+                grower_number: growerReg,
+              },
               id: form_id,
               // idColumn: "application_form_id",
               connection,
             });
           }
 
+          is_qds_producer = true;
         }
+
+        // update user access level based on the form type
+        const userData = {
+          is_grower,
+          is_merchant,
+          is_qds_producer,
+        };
+
+        await saveData({
+          table: "users",
+          data: userData,
+          id: formOwner.id,
+        });
 
         // send email with attachment if any
         await sendEmail({
