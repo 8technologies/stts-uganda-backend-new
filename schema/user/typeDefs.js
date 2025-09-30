@@ -17,6 +17,9 @@ const userTypeDefs = `#graphql
         created_at: DateTime!
         updated_at: DateTime!
         sr4_applications: [SR4ApplicationForm]
+        is_grower: Boolean
+        is_merchant: Boolean
+        is_qds_producer: Boolean
     }
 
 

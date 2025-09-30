@@ -70,7 +70,6 @@ const handleSQLError = (error, fallback = "Database error") => {
   return new GraphQLError(error?.message || fallback);
 };
 
-// Query builders ----------------------------------------------------
 export const listCrops = async ({ filter = {}, pagination = {} }) => {
   const { search, isQDS } = filter;
   const page = Math.max(1, Number(pagination.page || 1));

@@ -56,10 +56,12 @@ const applicationFormsTypeDefs = `#graphql
         signature_of_applicant: String
         grower_number: String
         seed_board_registration_number: String
+        registration_number: String
         valid_from: Date
         valid_until: Date
         status: StatusType
         inspector_id: String
+        inspector_comment: String
         status_comment: String
         recommendation: String
         have_adequate_storage: Boolean
@@ -70,13 +72,14 @@ const applicationFormsTypeDefs = `#graphql
         other_documents: String
         inspector: User
         user: User
+        created_at: DateTime,
+        updated_at: DateTime
     }
 
     type QDsApplicationForm {
         id: ID
         user_id: String
         farm_location: String
-        receipt_id: String
         certification: String
         recommendation_id: String
         form_type: String!
@@ -101,10 +104,13 @@ const applicationFormsTypeDefs = `#graphql
         isolation_distance: Int
         number_of_labors: Int
         have_adequate_storage_facility: Boolean
+        receipt_id: String
         is_not_used: Boolean
         examination_category: Int
         inspector: User
         user: User
+        created_at: DateTime,
+        updated_at: DateTime
 
     }
     enum Sr4Type {
