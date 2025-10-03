@@ -26,6 +26,7 @@ const saveUpload = async ({ file, subdir = "attachments" }) => {
     const newFilename = `${id}${ext || ""}`;
 
     const folderPath = path.join(__dirname, "../public", subdir);
+    console.log("Saving upload to:", folderPath);
     await fs.promises.mkdir(folderPath, { recursive: true });
 
     const filePath = path.join(folderPath, newFilename);

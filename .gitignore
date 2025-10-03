@@ -2,3 +2,5 @@ node_modules/
 schema/index.js
 public/imgs/
 public/form_attachments/
+public/planting_returns_attachments/
+public/Subgrower_files/

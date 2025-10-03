@@ -5,8 +5,16 @@ import saveData from "../../utils/db/saveData.js";
 import checkPermission from "../../helpers/checkPermission.js";
 import { fetchCropById, fetchVarietyById } from "../crop/resolvers.js";
 import { getUsers } from "../user/resolvers.js";
+import saveUpload from "../../helpers/saveUpload.js";
 import hasPermission from "../../helpers/hasPermission.js";
 import sendEmail from "../../utils/emails/email_server.js";
+import path from "path";
+import fs from "fs";
+import XLSX from "xlsx";
+import { fileURLToPath } from "url";
+import importSubGrowers from "../../utils/subgrowers/importsubgrowers.js";
+
+
 
 const mapReturn = (row) => ({
   id: String(row.id),
@@ -141,7 +149,7 @@ export const listPlantingReturns = async ({ filter = {}, pagination = {} }) => {
 };
 
 // Generate SR8 number like SR8-YYYY-0001 (naive, not concurrency-safe)
-const generateSr8Number = async () => {
+/* const generateSr8Number = async () => {
   const year = new Date().getFullYear();
   const [[row]] = await db.execute(
     "SELECT COUNT(*) AS c FROM planting_returns WHERE YEAR(created_at) = ?",
@@ -149,7 +157,23 @@ const generateSr8Number = async () => {
   );
   const next = Number(row?.c || 0) + 1;
   return `SR8-${year}-${String(next).padStart(4, "0")}`;
+}; */
+
+const generateSr8Number = async () => {
+  const year = new Date().getFullYear();
+
+  // Atomic insert-or-increment using the sequence table
+  const [result] = await db.execute(
+    `INSERT INTO sr8_sequences (year, last_seq)
+     VALUES (?, 1)
+     ON DUPLICATE KEY UPDATE last_seq = LAST_INSERT_ID(last_seq + 1)`,
+    [year]
+  );
+
+  const next = result.insertId; // Guaranteed unique per row
+  return `SR8-${year}-${String(next).padStart(4, "0")}`;
 };
+
 
 const plantingReturnsResolvers = {
   DateTime: DateTimeResolver,
@@ -246,6 +270,7 @@ const plantingReturnsResolvers = {
 
   Mutation: {
     createPlantingReturn: async (parent, args, context) => {
+      const connection = await db.getConnection();
       const userPermissions = context.req.user.permissions;
       checkPermission(
         userPermissions,
@@ -255,6 +280,8 @@ const plantingReturnsResolvers = {
 
       const input = args.input || {};
       try {
+        await connection.beginTransaction();
+        
         const sr8_number = await generateSr8Number();
         const data = {
           sr8_number,
@@ -280,6 +307,7 @@ const plantingReturnsResolvers = {
           seed_lot_code: input.seedLotCode || null,
           intended_merchant: input.intendedMerchant || null,
           seed_rate_per_ha: input.seedRatePerHa || null,
+          // receipt: input.receipt || null,
         };
 
         const id = await saveData({
@@ -287,7 +315,43 @@ const plantingReturnsResolvers = {
           data,
           id: null,
           idColumn: "id",
+          connection
         });
+
+        let savedReceiptInfo = null;
+        if (input.receipt) {
+          try {
+            savedReceiptInfo = await saveUpload({
+              file: input.receipt,
+              subdir: "form_attachments",
+            });
+          } catch (e) {
+            // If upload fails, rollback and bubble up
+            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+          }
+        }
+
+        //save the receipt and subgrower file info
+        if (savedReceiptInfo ) {
+          try {
+            // Update application_forms with receipt_id
+            await saveData({
+              table: "planting_returns",
+              data: { receipt_id: savedReceiptInfo.filename},
+              id: id,
+              connection,
+            });
+          } catch (e) {
+            // Non-fatal for the core form save; log but do not block
+            console.error(
+              "Failed to save form_attachments record or update receipt_id:",
+              e.message
+            );
+          }
+        }
+
+        await connection.commit();
+
         const record = await fetchReturnById(id);
         return {
           success: true,
@@ -541,6 +605,181 @@ const plantingReturnsResolvers = {
         throw handleSQLError(error, "Failed to halt planting return");
       }
     },
+
+    createPlantingReturnUpload: async (parent, args, context) => {
+      const connection = await db.getConnection();
+      const userPermissions = context.req.user.permissions;
+      checkPermission(
+        userPermissions,
+        "can_create_planting_returns",
+        "You dont have permissions to create planting returns"
+      );
+
+      console.log("args", args.input);
+
+      const input = args.input || {};
+      try {
+        await connection.beginTransaction();
+        const data = {
+          amount_enclosed: input.amount_enclosed || null,
+          registered_dealer: input.registered_dealer || null,
+          user_id: context?.req?.user?.id || null,
+        };
+
+        const id = await saveData({
+          table: "planting_returns_uploads",
+          data,
+          id: null,
+          idColumn: "id",
+          connection
+        });
+
+        // If a receipt was uploaded, save it and capture its public path
+        let savedReceiptInfo = null;
+        if (input.payment_receipt) {
+          try {
+            savedReceiptInfo = await saveUpload({
+              file: input.payment_receipt,
+              subdir: "form_attachments",
+            });
+          } catch (e) {
+            // If upload fails, rollback and bubble up
+            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+          }
+        }
+
+        // If a receipt was uploaded, save it and capture its public path
+        let savedSubgrowerInfo = null;
+        let subgrowers = null;
+        if (input.sub_grower_file) {
+          try {
+            savedSubgrowerInfo = await saveUpload({
+              file: input.sub_grower_file,
+              subdir: "Subgrower_files",
+            });
+            console.log("try-------------------------------------");
+            //  subgrowers = importSubGrowers(null, { fileName: savedSubgrowerInfo.filename, returnId: id }, context);
+            subgrowers = await importSubGrowers(savedSubgrowerInfo.filename);
+            console.log("subgrowers", subgrowers);
+            
+
+            // for (const subgrower of subgrowers) {
+            //   const sr8_number = await generateSr8Number();
+            //   const subgrowerdata = {
+            //       sr8_number,
+            //       file_upload_id: id,
+            //       created_by: context?.req?.user?.id || null,
+            //       applicant_name: subgrower.name || null,
+            //       contact_phone: subgrower.phone_number || null,
+            //       field_name: subgrower.field_name || null,
+            //       gps_lat: subgrower.gps_latitude || null,
+            //       gps_lng: subgrower.gps_longitude || null,
+            //       district: subgrower.district || null,
+            //       subcounty: subgrower.subcounty || null,
+            //       parish: subgrower.location?.parish || null,
+            //       village: subgrower.village || null,
+            //       date_sown: subgrower.planting_date || null,
+            //       expected_harvest: subgrower.planting_date || null,
+            //       seed_source: subgrower.source_of_seed || null,
+            //       seed_lot_code: subgrower.lot_number || null,
+            //       seed_class: subgrower.seed_class || null,
+            //       area_ha: subgrower.size ?? null,
+            //       crop_id: subgrower.crop || null,
+            //       variety_id: subgrower.variety || null,
+            //       intended_merchant: input.registered_dealer || null,
+            //       seed_rate_per_ha: input.amount_enclosed || null,
+            //       grower_number: subgrower.growerNumber || null,
+            //       garden_number: subgrower.gardenNumber || null,
+            //       receipt_id: savedReceiptInfo.filename || null,
+            //     };
+            //   await saveData({
+            //     table: "planting_returns",
+            //     data: subgrowerdata,
+            //     id: null,
+            //     idColumn: "id",
+            //     connection
+            //   });
+            // }
+
+            const chunkSize = 10; // insert 10 at a time
+            for (let i = 0; i < subgrowers.length; i += chunkSize) {
+              const chunk = subgrowers.slice(i, i + chunkSize);
+              await Promise.all(chunk.map(async (subgrower) => {
+                const sr8_number = await generateSr8Number();
+                const subgrowerdata = {
+                  sr8_number,
+                  file_upload_id: id,
+                  created_by: context?.req?.user?.id || null,
+                  applicant_name: subgrower.name || null,
+                  contact_phone: subgrower.phone_number || null,
+                  field_name: subgrower.field_name || null,
+                  gps_lat: subgrower.gps_latitude || null,
+                  gps_lng: subgrower.gps_longitude || null,
+                  district: subgrower.district || null,
+                  subcounty: subgrower.subcounty || null,
+                  parish: subgrower.location?.parish || null,
+                  village: subgrower.village || null,
+                  date_sown: subgrower.planting_date || null,
+                  expected_harvest: subgrower.planting_date || null,
+                  seed_source: subgrower.source_of_seed || null,
+                  seed_lot_code: subgrower.lot_number || null,
+                  seed_class: subgrower.seed_class || null,
+                  area_ha: subgrower.size ?? null,
+                  crop_id: subgrower.crop || null,
+                  variety_id: subgrower.variety || null,
+                  intended_merchant: input.registered_dealer || null,
+                  seed_rate_per_ha: input.amount_enclosed || null,
+                  grower_number: subgrower.growerNumber || null,
+                  garden_number: subgrower.gardenNumber || null,
+                  receipt_id: savedReceiptInfo.filename || null,
+                };
+                return saveData({
+                  table: "planting_returns",
+                  data: subgrowerdata,
+                  id: null,
+                  idColumn: "id",
+                  connection
+                });
+              }));
+            }
+
+
+
+          } catch (e) {
+            // If upload fails, rollback and bubble up
+            throw new GraphQLError(`Receipt upload failed: ${e.message}`);
+          }
+        }
+
+        //save the receipt and subgrower file info
+        if (savedReceiptInfo || savedSubgrowerInfo) {
+          try {
+            // Update application_forms with receipt_id
+            await saveData({
+              table: "planting_returns_uploads",
+              data: { payment_receipt: savedReceiptInfo.filename, sub_grower_file: savedSubgrowerInfo ? savedSubgrowerInfo.filename : null },
+              id: id,
+              connection,
+            });
+          } catch (e) {
+            // Non-fatal for the core form save; log but do not block
+            console.error(
+              "Failed to save form_attachments record or update receipt_id:",
+              e.message
+            );
+          }
+        }
+
+        await connection.commit();
+        return {
+          success: true,
+        }
+        
+      } catch (error) {
+        throw handleSQLError(error, "Failed to create planting return upload");
+      }
+    }
+
   },
 };
 

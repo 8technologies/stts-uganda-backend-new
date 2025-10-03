@@ -23,6 +23,7 @@ export const getForms = async ({
   user_id,
   inspector_id = null,
   user_assigned_forms,
+  status
 }) => {
   console.log({
     id,
@@ -52,6 +53,10 @@ export const getForms = async ({
     if (form_type) {
       where += " AND application_forms.form_type = ?";
       values.push(form_type);
+    }
+    if (status) {
+      where += " AND application_forms.status = ?";
+      values.push(status);
     }
 
     if (inspector_id) {
@@ -437,18 +442,8 @@ const applicationFormsResolvers = {
         let data = {
           user_id,
           years_of_experience,
-          // valid_from,
-          // valid_until,
-          // inspector_id,
           status,
-          // status_comment,
-          // recommendation,
-          // valid_from: valid_from || null,
-          // valid_until: valid_until || null,
-          // inspector_id: inspector_id || null,
           status: "pending",
-          // status_comment,
-          // recommendation,
           have_adequate_storage,
           dealers_in,
           form_type: "sr4",
@@ -493,17 +488,9 @@ const applicationFormsResolvers = {
           have_adequate_land_for_production,
           have_internal_quality_program,
           source_of_seed: source_of_seed || null,
-          // receipt,
-          // accept_declaration,
           dealers_in_other: dealers_in_other || null,
-          // // seed_board_registration_number,
-          // processing_of_other,
           accept_declaration: accept_declaration || null,
-          // dealers_in_other,
-          // seed_board_registration_number,
-          // processing_of_other,
           marketing_of,
-          // marketing_of_other,
         };
 
         // Do not set receipt on sr4 table; receipt_id is kept on application_forms

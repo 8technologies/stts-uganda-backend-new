@@ -1,6 +1,6 @@
 const plantingReturnsTypeDefs = `#graphql
   scalar DateTime
-
+  scalar Upload
 
   type PlantingReturn {
     id: ID!
@@ -10,6 +10,7 @@ const plantingReturnsTypeDefs = `#graphql
     applicantName: String
     growerNumber: String
     contactPhone: String
+    receipt_id: String
 
     # Field
     gardenNumber: String
@@ -57,6 +58,27 @@ const plantingReturnsTypeDefs = `#graphql
     total: Int!
   }
 
+  # planting returns uploads------------------------------------
+  type PlantingReturnUpload {
+    id: ID!
+    user_id: String!
+    amount_enclosed: Int
+    payment_receipt: String!
+    sub_grower_file: String!
+    registered_dealer: String
+  }
+
+  input PlantingReturnUploadInput {
+    # id: ID!
+    # user_id: String!
+    amount_enclosed: Int
+    payment_receipt: Upload!
+    sub_grower_file: Upload!
+    registered_dealer: String
+  }
+
+  # -----------------------------------------------------------------
+
   input PlantingReturnFilter {
     status: String
     search: String
@@ -95,6 +117,7 @@ const plantingReturnsTypeDefs = `#graphql
     seedLotCode: String
     intendedMerchant: String
     seedRatePerHa: String
+    receipt: Upload
   }
 
   input UpdatePlantingReturnInput {
@@ -117,6 +140,7 @@ const plantingReturnsTypeDefs = `#graphql
     seedLotCode: String
     intendedMerchant: String
     seedRatePerHa: String
+    receipt: Upload
 
     # Scheduling
     scheduledVisitDate: String
@@ -160,12 +184,17 @@ const plantingReturnsTypeDefs = `#graphql
  type Query {
     plantingReturns(filter: PlantingReturnFilter, pagination: PaginationInput): PlantingReturnEdge
     plantingReturn(id: ID!): PlantingReturn
+
+    plantingReturnUploads: [PlantingReturnUpload!]!
+    plantingReturnUpload(id: ID!): PlantingReturnUpload
   }
 
  type Mutation {
     createPlantingReturn(input: CreatePlantingReturnInput!): PlantingReturnPayload
     updatePlantingReturn(id: ID!, input: UpdatePlantingReturnInput!): PlantingReturnPayload
     deletePlantingReturn(id: ID!): BasicPayload
+
+    createPlantingReturnUpload(input: PlantingReturnUploadInput!): PlantingReturnPayload
 
     assignPlantingReturnInspector(input: AssignPlantingReturnInspectorInput!): BasicPayload
     approvePlantingReturn(input: ApprovePlantingReturnInput!): BasicPayload
